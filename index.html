@@ -268,7 +268,7 @@ body.easyMode #boardWrap{
     <span class="pill">タップ：状態変更・相談・30分前確認</span>
     <span class="pill">かんたん：スタッフ2＋新人1＋リーダー＋ヘルパー＋副店長＋店長</span>
     <span class="pill">初期予約：かんたん約55%／平日 約55〜60%／休日 約60〜65%</span>
-    <span class="pill">10:00は通常スタッフ1名を10:30まで空ける</span>
+    <span class="pill">10:00は通常スタッフ1名だけ空き・他スタッフは予約あり</span>
     <span class="pill">当日客：1日複数回必ず発生・1〜3名同時来店あり</span>
     <span class="pill">当日客：15分カード→内容確認1分→必要時間で配置</span>
     <span class="pill">休憩60分は開始前に配置済み</span>
@@ -1237,6 +1237,28 @@ function seed(){
   const target=dayMode==="easy" ? .55 : (dayMode==="weekday" ? .575 : .625);
   regulars.forEach(n=>fillBalancedReservations(n,target));
   regulars.forEach(n=>ensureVisibleReservations(n));
+
+  // 開店時は「スタッフ1人だけ空き」に近づける。
+  // openingFloater以外の通常スタッフに10:00開始の予約がなければ、
+  // 入る手続きを探して10:00へ配置する。
+  const openingStaff=regulars.filter(n=>n.startsWith("スタッフ"));
+  openingStaff.forEach(n=>{
+    if(n===openingFloater)return;
+    const already=blocks.some(b=>b.lane===n && b.start<=START && b.start+b.duration>START);
+    if(already)return;
+
+    let placed=false;
+    for(let tries=0;tries<40 && !placed;tries++){
+      const proc=randomProcFor(n);
+      if(!allowedInitialType(proc))continue;
+      const dur=procedures[proc];
+      if(freeFor(n,START,dur)){
+        addBlock(n,START,proc,{state:"white",source:"予約"});
+        noteInitialType(proc);
+        placed=true;
+      }
+    }
+  });
 
   // 3. 宛予約は少数。空いている場所にのみ入れる。
   const candidates=regulars.filter(x=>staff[x]?.level!=="新人");
