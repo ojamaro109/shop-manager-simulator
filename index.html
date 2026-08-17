@@ -58,15 +58,18 @@ th.time,td.time{min-width:var(--time-w);width:var(--time-w);background:#fafafa;p
 .flex{display:flex;gap:7px;flex-wrap:wrap}
 .pill{border:1px solid #ccd2d8;background:#f8fafc;border-radius:999px;padding:5px 8px;font-size:12px}
 #eventLog{
-  max-height:100%;overflow:auto;font-size:13px;background:#f8fafc;color:#1f2937;
-  padding:8px;border-radius:8px;border:1px solid #d7dbe0;
+  height:calc(100vh - 210px);min-height:420px;overflow-y:auto;overflow-x:hidden;
+  font-size:17px;background:#f8fafc;color:#1f2937;
+  padding:10px;border-radius:8px;border:1px solid #d7dbe0;
+  scroll-behavior:smooth;overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
 }
 .eventHeader{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
 .eventHeader h3{margin:0}
 .logrow{
-  margin-bottom:7px;padding:8px 9px;border-radius:8px;background:#fff;
-  border-left:5px solid #94a3b8;box-shadow:0 1px 2px rgba(0,0,0,.04);
-  line-height:1.45;
+  margin-bottom:9px;padding:10px 11px;border-radius:8px;background:#fff;
+  border-left:6px solid #94a3b8;box-shadow:0 1px 2px rgba(0,0,0,.04);
+  line-height:1.5;font-weight:600;
 }
 .logrow.alert{color:#7a4b00;border-left-color:#f59e0b;background:#fff8e7}
 .logrow.good{color:#14532d;border-left-color:#22c55e;background:#effcf3}
@@ -90,7 +93,7 @@ th.time,td.time{min-width:var(--time-w);width:var(--time-w);background:#fafafa;p
 @media(max-width:899px){
   .sideEvent{margin:8px}
   .targetTop{top:104px}
-  #eventLog{max-height:260px}
+  #eventLog{height:360px;min-height:360px;font-size:17px}
 }
 </style>
 </head>
@@ -132,7 +135,10 @@ th.time,td.time{min-width:var(--time-w);width:var(--time-w);background:#fafafa;p
   <div class="sideEvent panel">
     <div class="eventHeader">
       <h3>イベントログ</h3>
-      <span class="small">新しいイベントが上に表示</span>
+      <div class="flex">
+        <button type="button" onclick="document.getElementById('eventLog').scrollTo({top:0,behavior:'smooth'})">最新へ</button>
+        <button type="button" onclick="document.getElementById('eventLog').scrollTo({top:document.getElementById('eventLog').scrollHeight,behavior:'smooth'})">最初へ</button>
+      </div>
     </div>
     <div id="eventLog"></div>
   </div>
@@ -145,6 +151,8 @@ th.time,td.time{min-width:var(--time-w);width:var(--time-w);background:#fafafa;p
     <span class="pill">iPhone：ブロックを約0.45秒長押し→移動</span>
     <span class="pill">タップ：状態変更・相談・30分前確認</span>
     <span class="pill">初期予約：平日 約55〜60%／休日 約60〜65%</span>
+    <span class="pill">10:00は通常スタッフ1名を10:30まで空ける</span>
+    <span class="pill">当日客：1日複数回必ず発生・1〜3名同時来店あり</span>
     <span class="pill">当日客：15分カード→内容確認1分→必要時間で配置</span>
     <span class="pill">休憩60分は開始前に配置済み</span>
     <span class="pill">30分枠は件数ベース約15%以下</span>
@@ -213,6 +221,8 @@ let achievedTargets=new Set();
 function fmt(m){return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0")}
 function slots(m){return Math.max(1,Math.ceil(m/15))}
 function log(txt,cls=""){
+  const eventEl=document.getElementById("eventLog");
+  if(!eventEl)return;
   let auto=cls;
   if(!auto){
     if(txt.includes("来店"))auto="arrival";
@@ -220,7 +230,7 @@ function log(txt,cls=""){
     else if(txt.includes("延長")||txt.includes("追加提案"))auto="alert";
     else if(txt.includes("確認")||txt.includes("移動")||txt.includes("相談"))auto="info";
   }
-  eventLog.innerHTML=`<div class="logrow ${auto}"><b>${fmt(now)}</b>　${txt}</div>`+eventLog.innerHTML;
+  eventEl.innerHTML=`<div class="logrow ${auto}"><b>${fmt(now)}</b>　${txt}</div>`+eventEl.innerHTML;
 }
 function renderGrid(){
  let h="<tr><th class='time'>時間</th>";lanes.forEach(l=>h+=`<th>${l}</th>`);h+="</tr>";
@@ -274,10 +284,11 @@ function opportunityText(b){
   return b.opportunities.map(k=>opportunityIcons[k]||"").join("");
 }
 function addBlock(lane,start,type,opt={}){
- const b={id:nextId++,lane,start,type,duration:opt.duration??procedures[type]??15,state:opt.state||"white",locked:!!opt.locked,addressee:opt.addressee||null,source:opt.source||"予約",extended:0,check30Done:false,salesWon:[],salesTried:[],
+ const baseDuration=opt.duration??procedures[type]??15;
+ const b={id:nextId++,lane,start,type,duration:baseDuration,state:opt.state||"white",locked:!!opt.locked,addressee:opt.addressee||null,source:opt.source||"予約",extended:0,check30Done:false,salesWon:[],salesTried:[],
    opportunities:opt.opportunities!==undefined?opt.opportunities:makeOpportunities(type),
    opportunitiesRevealed:opt.opportunitiesRevealed!==undefined?opt.opportunitiesRevealed:(opt.source!=="当日"),
-   inspected:false,consulted:false,originalDuration:opt.originalDuration??duration};
+   inspected:false,consulted:false,originalDuration:opt.originalDuration??baseDuration};
  blocks.push(b);renderBlocks();return b;
 }
 function stateClass(b){return b.addressee||b.locked?"st-pink":"st-"+b.state}
@@ -570,37 +581,69 @@ function triggerNeed(b,label){
  else log(`📣 ${b.lane}「${b.type}」${label}。色を更新してください`,"alert");
  setTimeout(()=>{const p=pending.find(x=>x.id===b.id&&!x.done);if(p){score-=5;rtScore=Math.max(0,rtScore-5);bossCount++;log(`👔 上司：「${b.lane}の${b.type}、色変えて」 -5`,"bad");updateScore()}},30000);
 }
+
+function makeWalkInWaveSchedule(){
+  // 当日来店は必ず発生。午前・中盤・夕方へ分散。
+  // 平日4〜6波、休日5〜7波。開始時刻は原則00/30。
+  const count=dayMode==="weekday" ? 4+Math.floor(Math.random()*3) : 5+Math.floor(Math.random()*3);
+  const buckets=[
+    [630,765],   // 10:30-12:45
+    [780,945],   // 13:00-15:45
+    [960,1110]   // 16:00-18:30
+  ];
+  const times=[];
+  for(let i=0;i<count;i++){
+    const [a,b]=buckets[i%3];
+    const candidates=[];
+    for(let t=a;t<=b;t+=30)candidates.push(t);
+    let t=candidates[Math.floor(Math.random()*candidates.length)];
+    let guard=0;
+    while(times.includes(t) && guard<20){
+      t=candidates[Math.floor(Math.random()*candidates.length)];
+      guard++;
+    }
+    times.push(t);
+  }
+  scheduledWalkInWaves=[...new Set(times)].sort((a,b)=>a-b);
+}
+function createWalkInWave(){
+  // 1〜3名。2名以上もそこそこ発生。
+  const roll=Math.random();
+  const count=roll<.18?3:(roll<.58?2:1);
+  const arrivals=[];
+  for(let i=0;i<count;i++){
+    let walkWeights=[
+      {type:"支払い",w:8},
+      {type:"機種変更",w:13},
+      {type:"故障",w:21},
+      {type:"プラン相談",w:20},
+      {type:"その他",w:18},
+      {type:"操作",w:7},
+      {type:"簡易",w:5}
+    ];
+    if(dailyWalkInCounts.PI<1)walkWeights.push({type:"PI",w:2});
+    if(dailyWalkInCounts["光相談"]<1)walkWeights.push({type:"光相談",w:3});
+
+    const t=weightedChoice(walkWeights);
+    if(t==="PI")dailyWalkInCounts.PI++;
+    if(t==="光相談")dailyWalkInCounts["光相談"]++;
+
+    const fullDur=procedures[t]||60;
+    // 当日レーンでは15分カードで縦に並ぶ
+    const b=addBlock("当日",now+i*15,t,{
+      duration:15,state:"yellow",source:"当日",
+      opportunities:makeOpportunities(t),opportunitiesRevealed:false
+    });
+    b.requiredDuration=fullDur;
+    arrivals.push(t);
+  }
+  log(`🚶 当日来店：${arrivals.join("・")}（${arrivals.length}名）`,"arrival");
+}
 function randomEvent(){
  const r=Math.random();
- if(r<.18){
-   // 当日は1〜3名が同時来店することがある。
-   const count=Math.random()<.22?3:(Math.random()<.55?2:1);
-   const arrivals=[];
-   for(let i=0;i<count;i++){
-     let walkWeights=[
-       {type:"支払い",w:8},
-       {type:"機種変更",w:13},
-       {type:"故障",w:21},
-       {type:"プラン相談",w:20},
-       {type:"その他",w:18},
-       {type:"操作",w:7},
-       {type:"簡易",w:5}
-     ];
-     if(dailyWalkInCounts.PI<1)walkWeights.push({type:"PI",w:2});
-     if(dailyWalkInCounts["光相談"]<1)walkWeights.push({type:"光相談",w:3});
-     const t=weightedChoice(walkWeights);
-     if(t==="PI")dailyWalkInCounts.PI++;
-     if(t==="光相談")dailyWalkInCounts["光相談"]++;
-     const fullDur=procedures[t]||60;
-     // 当日レーン上では15分カード。内容確認後、実際の必要時間は保持。
-     const b=addBlock("当日",now+i*15,t,{
-       duration:15,state:"yellow",source:"当日",
-       opportunities:makeOpportunities(t),opportunitiesRevealed:false
-     });
-     b.requiredDuration=fullDur;
-     arrivals.push(t);
-   }
-   log(`🚶 当日来店：${arrivals.join("・")}（${arrivals.length}名）`,"alert");
+ if(r<.08){
+   // 予定波とは別に、まれに追加の当日来店
+   createWalkInWave();
  }else if(r<.30){
    const f=blocks.filter(b=>b.start>now&&b.source==="予約"&&!b.addressee&&b.state==="white");
    if(f.length){const b=f[Math.floor(Math.random()*f.length)];triggerNeed(b,"キャンセル");renderBlocks();}
@@ -621,6 +664,10 @@ function randomEvent(){
  }
 }
 function updateWorld(){
+ if(scheduledWalkInWaves.includes(now)){
+   createWalkInWave();
+   scheduledWalkInWaves=scheduledWalkInWaves.filter(t=>t!==now);
+ }
  blocks.forEach(b=>{
    if(b.start===now&&b.state==="white"&&!["休憩","延長"].includes(b.type))triggerNeed(b,"来店");
    if(b.state==="orange"&&b.start+b.duration-now===30&&!b.check30Done)log(`⏱ ${b.lane}「${b.type}」残り30分。終了見込み確認できます`,"");
@@ -660,7 +707,9 @@ function renderSales(){
     {label:"👿 アフィリエイト",current:sales["アフィリエイト"]||0,target:5},
     {label:"🔥 でんき・ガス",current:sales["でんき・ガス"]||0,target:3}
   ];
-  targetBoard.innerHTML=items.map(x=>{
+  const targetEl=document.getElementById("targetBoard");
+  if(!targetEl)return;
+  targetEl.innerHTML=items.map(x=>{
     const done=x.current>=x.target;
     const pct=Math.min(100,Math.round((x.current/x.target)*100));
     return `<span class="pill" style="${done?"font-weight:800;border-color:#22c55e;background:#effcf3":""}">
@@ -687,11 +736,26 @@ function checkTargets(){
 }
 function updateScore(){
  const sp=Object.entries(sales).reduce((a,[k,v])=>a+salesValues[k]*v,0);
- document.getElementById("score").textContent=score+sp;rtScoreEl=document.getElementById("rtScore");rtScoreEl.textContent=rtScore;bossCountEl=document.getElementById("bossCount");bossCountEl.textContent=bossCount;salesScore.textContent=sp;renderSales();
+ document.getElementById("score").textContent=score+sp;
+ document.getElementById("rtScore").textContent=rtScore;
+ document.getElementById("bossCount").textContent=bossCount;
+ document.getElementById("salesScore").textContent=sp;
+ renderSales();
 }
-function highlightNow(){document.querySelectorAll("#grid tr").forEach(r=>r.classList.remove("currentRow"));const r=document.querySelector(`#grid tr[data-time="${now}"]`);if(r)r.classList.add("currentRow");clock.textContent=fmt(now)}
+function highlightNow(){
+ document.querySelectorAll("#grid tr").forEach(r=>r.classList.remove("currentRow"));
+ const r=document.querySelector(`#grid tr[data-time="${now}"]`);
+ if(r)r.classList.add("currentRow");
+ document.getElementById("clock").textContent=fmt(now);
+}
 function tick(){now+=15;if(now>END){pauseGame();alert("営業終了");return;}highlightNow();updateWorld()}
-function startGame(){if(running)return;running=true;timer=setInterval(tick,Number(speedSel.value)*1000);log("▶ 営業開始","")}
+function startGame(){
+ if(running)return;
+ running=true;
+ const speed=document.getElementById("speedSel");
+ timer=setInterval(tick,Number(speed.value)*1000);
+ log("▶ 営業開始","");
+}
 function pauseGame(){running=false;if(timer){clearInterval(timer);timer=null}log("⏸ 一時停止","")}
 function weightedChoice(items){
   const total=items.reduce((a,x)=>a+x.w,0);
@@ -742,6 +806,8 @@ function reserveBreaks(regulars){
 let oddStartBudget=2;
 let dailyInitialCounts={PI:0,"光相談":0};
 let dailyWalkInCounts={PI:0,"光相談":0};
+let scheduledWalkInWaves=[];
+let openingFloater=null;
 
 function allowedInitialType(type){
   if(type==="PI" && dailyInitialCounts.PI>=2)return false;
@@ -777,7 +843,13 @@ function fillBalancedReservations(name,targetRatio){
       if(!allowedInitialType(proc)){attempts++;continue;}
       const dur=procedures[proc];
       const starts=preferredStarts(ps,pe,dur);
-      let possible=starts.filter(t=>freeFor(name,t,dur));
+      let possible=starts.filter(t=>{
+        if(!freeFor(name,t,dur))return false;
+        // 10:00時点で通常スタッフ1名を必ず空ける。
+        // そのスタッフは10:00〜10:30を初動用の余白にする。
+        if(name===openingFloater && t<START+30 && t+dur>START)return false;
+        return true;
+      });
       if(!possible.length)break;
 
       // 00/30開始を優先し、15/45開始は1日2件以下。
@@ -836,7 +908,14 @@ function ensureHelperCapacity(regulars){
   });
 }
 function seed(){
+  makeWalkInWaveSchedule();
   const regulars=lanes.filter(x=>x.startsWith("スタッフ")||x.startsWith("新人"));
+  const normalStaff=regulars.filter(x=>x.startsWith("スタッフ"));
+
+  // 10:00は通常スタッフのうち1人を必ず空ける
+  openingFloater=normalStaff.length
+    ? normalStaff[Math.floor(Math.random()*normalStaff.length)]
+    : null;
 
   // 1. 休憩を先に確保
   reserveBreaks(regulars);
@@ -864,16 +943,21 @@ function seed(){
 
   // 4. ヘルパー案件。登録不能で開始しないよう最低限の余白を確認。
   ensureHelperCapacity(regulars);
+
+  if(openingFloater){
+    log(`🟢 10:00初動枠：${openingFloater} を10:30まで空けています`,"good");
+  }
 }
-startBtn.onclick=startGame;
-pauseBtn.onclick=pauseGame;
-resetBtn.onclick=()=>location.reload();
-speedSel.onchange=()=>{if(running){pauseGame();startGame()}};
-dayModeSel.onchange=()=>{
-  dayMode=dayModeSel.value;
+document.getElementById("startBtn").onclick=startGame;
+document.getElementById("pauseBtn").onclick=pauseGame;
+document.getElementById("resetBtn").onclick=()=>location.reload();
+document.getElementById("speedSel").onchange=()=>{if(running){pauseGame();startGame()}};
+document.getElementById("dayModeSel").onchange=()=>{
+  dayMode=document.getElementById("dayModeSel").value;
   if(running) pauseGame();
   now=START; blocks=[]; nextId=1; pending=[]; score=0; rtScore=100; bossCount=0;
-  oddStartBudget=2; dailyInitialCounts={PI:0,"光相談":0}; dailyWalkInCounts={PI:0,"光相談":0}; achievedTargets=new Set();
+  oddStartBudget=2; dailyInitialCounts={PI:0,"光相談":0}; dailyWalkInCounts={PI:0,"光相談":0};
+  scheduledWalkInWaves=[]; openingFloater=null; achievedTargets=new Set();
   sales={}; salesKeys.forEach(k=>sales[k]=0);
   buildLanes(); buildStaff(); renderGrid(); renderStaff(); seed(); renderSales(); updateScore(); highlightNow();
   log(dayMode==="weekday"?"📅 平日モードに変更":"📅 休日モードに変更","");
