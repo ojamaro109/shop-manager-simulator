@@ -263,8 +263,8 @@ body.easyMode #boardWrap{
 <div class="panel">
   <h3>操作</h3>
   <div class="flex">
-    <span class="pill">Windows：ブロックをドラッグ</span>
-    <span class="pill">iPhone：ブロックを約0.45秒長押し→移動</span>
+    <span class="pill">Windows：ブロックをドラッグ（掴んだ位置を保持）</span>
+    <span class="pill">iPhone：ブロックを約0.45秒長押し→移動（時刻ズレ補正）</span>
     <span class="pill">タップ：状態変更・相談・30分前確認</span>
     <span class="pill">🔄 更新するたび予約・Lv・時間管理・提案★を再抽選</span>
     <span class="pill">かんたん：スタッフ2＋新人1＋リーダー＋ヘルパー＋副店長＋店長</span>
@@ -396,6 +396,7 @@ let now=START,running=false,timer=null,score=0,rtScore=100,bossCount=0;
 let sales={};salesKeys.forEach(k=>sales[k]=0);
 const targets={"PLATINUM":2,"光":3,"GOLD":4,"アフィリエイト":5,"でんき・ガス":3};
 let blocks=[],nextId=1,pending=[],selected=null;
+let dragGrabOffsetSlots=0;
 let achievedTargets=new Set();
 
 function fmt(m){return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0")}
@@ -423,8 +424,15 @@ function renderGrid(){
  document.querySelectorAll("#grid td[data-lane]").forEach(td=>{
    td.addEventListener("dragover",e=>e.preventDefault());
    td.addEventListener("drop",e=>{
-     e.preventDefault();const id=Number(e.dataTransfer.getData("text/plain"));const b=blocks.find(x=>x.id===id);
-     if(b)moveBlock(b,td.dataset.lane,Number(td.dataset.time));
+     e.preventDefault();
+     const id=Number(e.dataTransfer.getData("text/plain"));
+     const b=blocks.find(x=>x.id===id);
+     if(b){
+       const rawTime=Number(td.dataset.time);
+       const corrected=Math.max(START,rawTime-dragGrabOffsetSlots*15);
+       moveBlock(b,td.dataset.lane,corrected);
+     }
+     dragGrabOffsetSlots=0;
    });
  });
 }
@@ -492,16 +500,32 @@ function renderBlocks(){
 }
 function bindBlock(el,b){
  el.draggable=true;
- el.addEventListener("dragstart",e=>e.dataTransfer.setData("text/plain",String(b.id)));
+ el.addEventListener("dragstart",e=>{
+   const rect=el.getBoundingClientRect();
+   const y=(typeof e.clientY==="number" && e.clientY>0)?e.clientY:rect.top;
+   dragGrabOffsetSlots=Math.max(0,Math.floor((y-rect.top)/42));
+   e.dataTransfer.setData("text/plain",String(b.id));
+ });
  let timerPress=null,dragging=false,targetLane=null,targetTime=null;
+ let touchGrabOffsetSlots=0;
  el.addEventListener("pointerdown",e=>{
    if(e.pointerType==="mouse")return;
-   timerPress=setTimeout(()=>{dragging=true;el.setPointerCapture(e.pointerId);el.classList.add("dragghost")},450);
+   const rect=el.getBoundingClientRect();
+   touchGrabOffsetSlots=Math.max(0,Math.floor((e.clientY-rect.top)/42));
+   timerPress=setTimeout(()=>{
+     dragging=true;
+     el.setPointerCapture(e.pointerId);
+     el.classList.add("dragghost");
+   },450);
  });
  el.addEventListener("pointermove",e=>{
    if(!dragging)return;e.preventDefault();
    const t=document.elementFromPoint(e.clientX,e.clientY);const td=t&&t.closest("td[data-lane]");
-   if(td){targetLane=td.dataset.lane;targetTime=Number(td.dataset.time);}
+   if(td){
+     targetLane=td.dataset.lane;
+     const raw=Number(td.dataset.time);
+     targetTime=Math.max(START,raw-touchGrabOffsetSlots*15);
+   }
  });
  el.addEventListener("pointerup",e=>{
    clearTimeout(timerPress);
@@ -546,6 +570,9 @@ function canDo(lane,type,b){
  return staff[lane]?.skills.includes(type);
 }
 function moveBlock(b,lane,start){
+ // 開始時刻は15分単位に補正し、営業時間外へは出さない。
+ start=Math.round(start/15)*15;
+ start=Math.max(START,Math.min(END-15,start));
  if((b.locked||b.addressee)&&lane!==b.lane){log(`🔒 ${b.addressee||b.lane}宛は担当変更不可`,"bad");return;}
  if(!canDo(lane,b.type,b)){log(`❌ ${lane}は${b.type}対応不可`,"bad");return;}
  b.lane=lane;b.start=start;
@@ -988,27 +1015,37 @@ function checkStaffTiming(staffName){
   updateScore();
 }
 function renderStaff(){
- staffStrip.innerHTML="";
- Object.entries(staff).forEach(([n,s])=>{
-   const tc=s.time==="安定◎"?"stable":s.time==="比較的安定"?"normal":"risky";
-   const labels=[
-     ["PLATINUM","💎"],
-     ["光","💡"],
-     ["GOLD","💳"],
-     ["機種変更化","📱"],
-     ["でんき・ガス","🔥"],
-     ["アフィリエイト","👿"]
-   ];
-   const allProposal=labels.map(([k,icon])=>`${icon}${k} ★${s.proposal[k]??"-"}`).join("<br>");
-   staffStrip.innerHTML+=`<div class="staffcard">
-     <div class="name">${n}</div>
-     <span class="badge">Lv.${s.level}</span>
-     ${s.role?`<span class="badge role">${s.role}</span>`:""}
-     <span class="badge ${tc}">${s.time}</span>
-     <div class="proposal">${allProposal}</div>
-     <button type="button" style="width:100%;margin-top:7px" onclick="checkStaffTiming('${n}')">⏱ 時間内に終わるか確認</button>
-   </div>`;
- });
+  const strip=document.getElementById("staffStrip");
+  strip.innerHTML="";
+
+  // 予約表の並び順に能力カードも表示する。
+  // 当日・登録待ち・予備はスタッフではないので除外。
+  const staffOrder=lanes.filter(n=>staff[n]);
+
+  staffOrder.forEach(n=>{
+    const s=staff[n];
+    const tc=s.time==="安定◎"?"stable":s.time==="比較的安定"?"normal":"risky";
+    const labels=[
+      ["PLATINUM","💎"],
+      ["光","💡"],
+      ["GOLD","💳"],
+      ["機種変更化","📱"],
+      ["でんき・ガス","🔥"],
+      ["アフィリエイト","👿"]
+    ];
+    const allProposal=labels
+      .map(([k,icon])=>`${icon}${k} ★${s.proposal[k]??"-"}`)
+      .join("<br>");
+
+    strip.innerHTML+=`<div class="staffcard">
+      <div class="name">${n}</div>
+      <span class="badge">Lv.${s.level}</span>
+      ${s.role?`<span class="badge role">${s.role}</span>`:""}
+      <span class="badge ${tc}">${s.time}</span>
+      <div class="proposal">${allProposal}</div>
+      <button type="button" style="width:100%;margin-top:7px" onclick="checkStaffTiming('${n}')">⏱ 時間内に終わるか確認</button>
+    </div>`;
+  });
 }
 function renderSales(){
   const items=[
