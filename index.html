@@ -24,7 +24,10 @@ button.primary{background:#0f5132;color:#fff;border-color:#0f5132}
 .name{font-weight:800;font-size:14px}
 .badge{display:inline-block;padding:2px 6px;border-radius:999px;background:#e9eef5;margin:2px 2px 0 0}
 .role{background:#fff2c7}.stable{background:#dff3e5}.normal{background:#e7eefc}.risky{background:#fde2e2}
-#boardWrap{overflow:auto;height:58vh;background:#fff;border-bottom:1px solid #d7dbe0;touch-action:pan-x pan-y}
+#boardWrap{overflow:auto;height:58vh;background:#fff;border-bottom:1px solid #d7dbe0;touch-action:pan-x pan-y;min-width:0}
+.desktopLayout{display:block}
+.sideEvent{display:block}
+
 table{border-collapse:collapse;min-width:max-content}
 th,td{border:1px solid var(--grid);height:var(--cell-h);min-width:var(--lane-w);position:relative}
 th{background:var(--head);position:sticky;top:0;z-index:10;font-size:13px}
@@ -45,7 +48,16 @@ th.time,td.time{min-width:var(--time-w);width:var(--time-w);background:#fafafa;p
 .modal h3{margin:0 0 8px}.modal .close{float:right}
 .actionGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.actionGrid button{width:100%}
 .small{font-size:11px;color:#6b7280}
-@media(min-width:900px){.modalBackdrop{align-items:center}.modal{border-radius:14px}#boardWrap{height:62vh}}
+@media(min-width:900px){
+  .modalBackdrop{align-items:center}.modal{border-radius:14px}
+  .desktopLayout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:8px;padding:8px}
+  #boardWrap{height:68vh;border:1px solid #d7dbe0;border-radius:10px}
+  .sideEvent{margin:0;height:68vh;display:flex;flex-direction:column}
+  .sideEvent #eventLog{max-height:none;height:100%;flex:1}
+}
+@media(max-width:899px){
+  .sideEvent{margin:8px}
+}
 </style>
 </head>
 <body>
@@ -59,6 +71,10 @@ th.time,td.time{min-width:var(--time-w);width:var(--time-w);background:#fafafa;p
       <option value="5" selected>標準（5秒=15分）</option>
       <option value="3">速い（3秒=15分）</option>
     </select>
+    <select id="dayModeSel">
+      <option value="weekday" selected>平日</option>
+      <option value="holiday">休日</option>
+    </select>
     <button id="resetBtn">↺ リセット</button>
   </div>
 </header>
@@ -71,7 +87,14 @@ th.time,td.time{min-width:var(--time-w);width:var(--time-w);background:#fafafa;p
 </div>
 
 <div id="staffStrip" class="staffstrip"></div>
-<div id="boardWrap"><table id="grid"></table></div>
+
+<div class="desktopLayout">
+  <div id="boardWrap"><table id="grid"></table></div>
+  <div class="sideEvent panel">
+    <h3>イベントログ</h3>
+    <div id="eventLog"></div>
+  </div>
+</div>
 
 <div class="panel">
   <h3>操作</h3>
@@ -79,17 +102,15 @@ th.time,td.time{min-width:var(--time-w);width:var(--time-w);background:#fafafa;p
     <span class="pill">Windows：ブロックをドラッグ</span>
     <span class="pill">iPhone：ブロックを約0.45秒長押し→移動</span>
     <span class="pill">タップ：状態変更・相談・30分前確認</span>
+    <span class="pill">初期予約：平日 約55〜60%／休日 約60〜65%</span>
+    <span class="pill">休憩60分は開始前に配置済み</span>
+    <span class="pill">30分枠は件数ベース約15%以下</span>
   </div>
 </div>
 
 <div class="panel">
-  <h3>本日の実績</h3>
-  <div class="flex" id="salesBoard"></div>
-</div>
-
-<div class="panel">
-  <h3>イベントログ</h3>
-  <div id="eventLog"></div>
+  <h3>本日の目標 / 実績</h3>
+  <div class="flex" id="targetBoard"></div>
 </div>
 
 <div class="modalBackdrop" id="modalBackdrop">
@@ -101,26 +122,55 @@ th.time,td.time{min-width:var(--time-w);width:var(--time-w);background:#fafafa;p
 
 <script>
 const START=600,END=1140,CELL_H=42;
-const lanes=["A","B","C","D","店長","副店長","リーダー","ヘルパー","当日","登録待ち","予備"];
+let dayMode="weekday";
+let lanes=[];
+
+function buildLanes(){
+  if(dayMode==="weekday"){
+    lanes=["スタッフA","スタッフB","スタッフC","新人1","新人2","リーダー","ヘルパー","登録待ち","当日","副店長","店長","予備"];
+  }else{
+    lanes=["スタッフA","スタッフB","スタッフC","スタッフD","スタッフE","新人1","新人2","リーダー","ヘルパー","登録待ち","当日","副店長","店長","予備"];
+  }
+}
 const procedures={"PI":90,"新規":90,"機種変更":90,"故障":60,"プラン相談":60,"光相談":60,"その他":60,"操作":30,"簡易":30,"支払い":15,"他店在庫受取":45,"休憩":60};
-const salesValues={"PLATINUM":100,"光":100,"GOLD":60,"機種変更化":60,"でんき":30,"ガス":30,"アフィリエイト":30};
+const salesValues={"PLATINUM":100,"光":100,"GOLD":60,"機種変更化":60,"でんき・ガス":30,"アフィリエイト":30};
 const salesKeys=Object.keys(salesValues);
 
-const staff={
- A:{level:3,time:"安定◎",skills:["PI","新規","機種変更","故障","プラン相談","光相談","その他","操作","簡易","支払い","他店在庫受取"],role:""},
- B:{level:2,time:"比較的安定",skills:["PI","新規","機種変更","プラン相談","光相談","その他","操作","簡易","支払い","他店在庫受取"],role:""},
- C:{level:1,time:"延長しやすい",skills:["機種変更","プラン相談","光相談","その他","操作","簡易","支払い","他店在庫受取"],role:""},
- D:{level:3,time:"比較的安定",skills:["PI","新規","機種変更","故障","プラン相談","光相談","その他","操作","簡易","支払い","他店在庫受取"],role:""},
- 店長:{level:3,time:"安定◎",skills:Object.keys(procedures).filter(x=>x!=="休憩"),role:"空け"},
- 副店長:{level:3,time:"比較的安定",skills:Object.keys(procedures).filter(x=>x!=="休憩"),role:"相談者"},
- リーダー:{level:3,time:"比較的安定",skills:Object.keys(procedures).filter(x=>x!=="休憩"),role:"フロア管理"},
- ヘルパー:{level:"H",time:"比較的安定",skills:["商談"],role:"商談"}
-};
-Object.values(staff).forEach(s=>{s.proposal={};salesKeys.forEach(k=>s.proposal[k]=1+Math.floor(Math.random()*5));});
+let staff={};
+
+function proposalSet(){
+  const p={}; salesKeys.forEach(k=>p[k]=1+Math.floor(Math.random()*5)); return p;
+}
+function addStaff(name,level,time,skills,role=""){
+  staff[name]={level,time,skills,role,proposal:proposalSet()};
+}
+function buildStaff(){
+  staff={};
+  const all=["PI","新規","機種変更","故障","プラン相談","光相談","その他","操作","簡易","支払い","他店在庫受取"];
+  const lv2=["PI","新規","機種変更","プラン相談","光相談","その他","操作","簡易","支払い","他店在庫受取"];
+  const lv1=["機種変更","プラン相談","光相談","その他","操作","簡易","支払い","他店在庫受取"];
+  const newbie=["プラン相談","その他","操作","簡易","他店在庫受取"];
+  const times=["安定◎","比較的安定","延長しやすい"];
+
+  const regulars = dayMode==="weekday" ? ["スタッフA","スタッフB","スタッフC"] : ["スタッフA","スタッフB","スタッフC","スタッフD","スタッフE"];
+  regulars.forEach((n,i)=>{
+    const lv=[3,2,1,3,2][i%5];
+    const sk=lv===3?all:(lv===2?lv2:lv1);
+    addStaff(n,lv,times[i%3],sk);
+  });
+  addStaff("新人1","新人","延長しやすい",newbie);
+  addStaff("新人2","新人","比較的安定",newbie);
+  addStaff("店長",3,"安定◎",all,"空け");
+  addStaff("副店長",3,"比較的安定",all,"相談者");
+  addStaff("リーダー",3,"比較的安定",all,"フロア管理");
+  addStaff("ヘルパー","H","比較的安定",["商談"],"商談");
+}
 
 let now=START,running=false,timer=null,score=0,rtScore=100,bossCount=0;
 let sales={};salesKeys.forEach(k=>sales[k]=0);
+const targets={"PLATINUM":2,"光":3,"GOLD":4,"アフィリエイト":5,"でんき・ガス":3};
 let blocks=[],nextId=1,pending=[],selected=null;
+let achievedTargets=new Set();
 
 function fmt(m){return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0")}
 function slots(m){return Math.max(1,Math.ceil(m/15))}
@@ -141,8 +191,43 @@ function renderGrid(){
    });
  });
 }
+
+const opportunityIcons={"PLATINUM":"💎","GOLD":"💳","光":"💡","でんき・ガス":"🔥","機種変更化":"📱","アフィリエイト":"👿"};
+
+function makeOpportunities(type){
+  // PIは全項目を狙える。
+  if(type==="PI")return ["PLATINUM","GOLD","光","機種変更化","でんき・ガス","アフィリエイト"];
+  // 予約内容ごとに「狙える実績」の出やすさを少し変える
+  let probs={PLATINUM:.38,GOLD:.42,"光":.34};
+  if(type==="PI"||type==="新規"||type==="機種変更"){
+    probs={PLATINUM:.52,GOLD:.58,"光":.38};
+  }else if(type==="プラン相談"){
+    probs={PLATINUM:.46,GOLD:.50,"光":.48};
+  }else if(type==="光相談"){
+    probs={PLATINUM:.26,GOLD:.30,"光":.92};
+  }else if(type==="故障"){
+    probs={PLATINUM:.28,GOLD:.32,"光":.22};
+  }else if(["操作","簡易","支払い"].includes(type)){
+    probs={PLATINUM:.18,GOLD:.22,"光":.16};
+  }else if(type==="休憩"||type==="延長"||type==="他店在庫受取"||type==="ご指摘対応"||type==="相談者"){
+    return [];
+  }
+  let result=Object.keys(probs).filter(k=>Math.random()<probs[k]);
+  // 下位実績・機種変更化の見込みも予約時点でランダム付与
+  if(!["休憩","延長","他店在庫受取","ご指摘対応","相談者"].includes(type)){
+    if(Math.random()<.38) result.push("でんき・ガス");
+    if(Math.random()<.28) result.push("アフィリエイト");
+    if(["プラン相談","故障","その他"].includes(type) && Math.random()<.38) result.push("機種変更化");
+  }
+  return [...new Set(result)];
+}
+
+function opportunityText(b){
+  if(!b.opportunities || !b.opportunities.length) return "";
+  return b.opportunities.map(k=>opportunityIcons[k]||"").join("");
+}
 function addBlock(lane,start,type,opt={}){
- const b={id:nextId++,lane,start,type,duration:opt.duration??procedures[type]??15,state:opt.state||"white",locked:!!opt.locked,addressee:opt.addressee||null,source:opt.source||"予約",extended:0,check30Done:false};
+ const b={id:nextId++,lane,start,type,duration:opt.duration??procedures[type]??15,state:opt.state||"white",locked:!!opt.locked,addressee:opt.addressee||null,source:opt.source||"予約",extended:0,check30Done:false,salesWon:[],salesTried:[],opportunities:opt.opportunities||makeOpportunities(type),consulted:false};
  blocks.push(b);renderBlocks();return b;
 }
 function stateClass(b){return b.addressee||b.locked?"st-pink":"st-"+b.state}
@@ -152,7 +237,11 @@ function renderBlocks(){
    const cell=document.querySelector(`td[data-lane="${b.lane}"][data-time="${b.start}"]`);if(!cell)return;
    const d=document.createElement("div");d.className=`block ${stateClass(b)}`;d.dataset.id=b.id;
    d.style.height=(slots(b.duration)*CELL_H-4)+"px";
-   d.innerHTML=`<div class="title">${b.addressee?b.addressee+"宛｜":""}${b.type}</div><div class="sub">${fmt(b.start)}-${fmt(b.start+b.duration)}</div>`;
+   const opp=opportunityText(b);
+   const oppRow=opp?`<div class="sub">見込み：${opp}</div>`:"";
+   const consultRow=b.consulted?`<div class="sub">💬 相談済（見込み★+1）</div>`:"";
+   const won=(b.salesWon&&b.salesWon.length)?`<div class="sub">成約：${b.salesWon.map(k=>k+" ♪").join("　")}</div>`:"";
+   d.innerHTML=`<div class="title">${b.addressee?b.addressee+"宛｜":""}${b.type}</div><div class="sub">${fmt(b.start)}-${fmt(b.start+b.duration)}</div>${oppRow}${consultRow}${won}`;
    bindBlock(d,b);cell.appendChild(d);
  });
  highlightNow();
@@ -181,7 +270,7 @@ function canDo(lane,type,b){
  if(["当日","登録待ち","予備"].includes(lane))return true;
  if(type==="休憩")return lane!=="ヘルパー";
  if(lane==="ヘルパー")return true;
- if(b&&b.source==="ヘルパー登録")return lane!=="ヘルパー";
+ if(b&&b.source==="ヘルパー登録")return lane!=="ヘルパー" && !["当日","登録待ち","予備"].includes(lane);
  return staff[lane]?.skills.includes(type);
 }
 function moveBlock(b,lane,start){
@@ -193,6 +282,11 @@ function openModal(b){
  selected=b;const s=staff[b.lane];
  let h=`<h3>${b.addressee?b.addressee+"宛｜":""}${b.type}</h3><div class="small">${b.lane}｜${fmt(b.start)}〜${fmt(b.start+b.duration)}</div>`;
  if(s)h+=`<p><b>${b.lane}</b> Lv.${s.level}｜時間管理：${s.time}</p>`;
+ if(b.opportunities&&b.opportunities.length){
+   h+=`<p><b>この予約の見込み：</b> ${b.opportunities.map(k=>(opportunityIcons[k]||"")+k).join("　")}</p>`;
+ }else{
+   h+=`<p class="small">この予約は実績見込み表示なし</p>`;
+ }
  h+=`<div class="actionGrid">
  <button onclick="setState('white')">⬜ 来店前</button>
  <button onclick="setState('yellow')">🟨 来店済</button>
@@ -203,9 +297,24 @@ function openModal(b){
  <button onclick="extendSel(30)">🟩 +30延長</button>
  <button onclick="check30()">⏱ 終了見込み確認</button>
  </div>`;
+ if(s&&b.state==="orange"){
+   h+=`<h4>提案結果</h4><div class="small">★が高いほど成約しやすくなります。提案した項目だけ判定してください。</div><div class="actionGrid">`;
+   salesKeys.forEach(k=>{
+     const tried=(b.salesTried||[]).includes(k);
+     const won=(b.salesWon||[]).includes(k);
+     const isOpp=(b.opportunities||[]).includes(k);
+     const icon=opportunityIcons[k]||"";
+     const effStar=Math.min(5,s.proposal[k]+((b.consultBoost&&b.consultBoost[k])?1:0));
+     h+=`<button ${tried?"disabled":""} onclick="judgeSale('${k}')">${won?"♪ ":""}${icon}${k} ★${effStar}${isOpp?"【見込み】":""}</button>`;
+   });
+   h+="</div>";
+ }
  if(s&&b.state==="orange"&&b.lane!=="ヘルパー"){
-   h+=`<h4>相談者へ相談（5分消費・★+1、最大5）</h4><div class="actionGrid">`;
-   salesKeys.forEach(k=>h+=`<button onclick="consult('${k}')">${k} ★${s.proposal[k]}</button>`);h+="</div>";
+   const opps=(b.opportunities||[]);
+   const boosted=opps.map(k=>`${opportunityIcons[k]||""}${k} ★${Math.min(5,s.proposal[k]+1)}`).join(" / ");
+   h+=`<h4>スタッフへの指示</h4>
+   <button ${b.consulted?"disabled":""} onclick="consultAll()">💬 相談に行って</button>
+   <div class="small">${b.consulted?"相談済み":opps.length?`5分消費。見込み項目をまとめて+★1（最大★5）→ ${boosted}`:"見込み項目がないため、相談による★上昇なし"}</div>`;
  }
  if(b.lane==="ヘルパー")h+=`<h4>商談完了</h4><button onclick="helperToReg()">登録待ちへ送る</button>`;
  modalBody.innerHTML=h;modalBackdrop.style.display="flex";
@@ -222,10 +331,70 @@ function setState(st){
  }
  renderBlocks();updateScore();closeModal();
 }
-function consult(k){
- const s=staff[selected.lane];if(!s)return;
- if(s.proposal[k]>=5){log(`ℹ ${k}は★5のため上昇なし`,"");closeModal();return;}
- selected.duration+=5;s.proposal[k]++;score+=4;log(`💬 ${selected.lane}が相談：${k} ★+1（5分消費）`,"good");renderStaff();renderBlocks();updateScore();closeModal();
+function judgeSale(k){
+ if(!selected)return;
+ const s=staff[selected.lane]; if(!s)return;
+ selected.salesTried=selected.salesTried||[];
+ selected.salesWon=selected.salesWon||[];
+ if(selected.salesTried.includes(k))return;
+
+ selected.salesTried.push(k);
+ const baseStar=s.proposal[k]||1;
+ const boost=(selected.consultBoost&&selected.consultBoost[k])?1:0;
+ const star=Math.min(5,baseStar+boost);
+ // ★1=15%, ★2=30%, ★3=45%, ★4=65%, ★5=82%
+ const probs={1:.15,2:.30,3:.45,4:.65,5:.82};
+ const base=probs[star]||.15;
+ const opportunityBonus=(selected.opportunities||[]).includes(k)?0.14:0;
+ // PIは全項目を狙える代わりに、個別の成約率を下げる。
+ const piPenalty=selected.type==="PI"?0.18:0;
+ const success=Math.random()<Math.max(.05,Math.min(.95,base+opportunityBonus-piPenalty));
+
+ if(success){
+   selected.salesWon.push(k);
+   sales[k]=(sales[k]||0)+1;
+   score+=3;
+   log(`🎉 ${selected.lane}「${selected.type}」：${k} 成約！`,"good");
+
+   // 2項目目の成約時だけ +30分。3項目以上でも追加延長なし。
+   if(selected.salesWon.length===2){
+     selected.duration+=30;
+     selected.extended+=30;
+     addBlock(selected.lane,selected.start+selected.duration-30,"延長",{duration:30,state:"green",source:"複数成約延長"});
+     log(`🟩 成約2項目以上のため +30分延長`,"alert");
+   }
+ }else{
+   // 失敗時は表記しない
+ }
+ checkTargets(); renderBlocks(); renderSales(); updateScore(); openModal(selected);
+}
+function consultAll(){
+ if(!selected)return;
+ const s=staff[selected.lane]; if(!s)return;
+ if(selected.consulted){
+   log(`ℹ ${selected.lane}「${selected.type}」は相談済み`,"");
+   closeModal(); return;
+ }
+ const opps=(selected.opportunities||[]);
+ selected.consulted=true;
+
+ // 相談に5分消費
+ selected.duration+=5;
+
+ // 見込み項目すべてを、この応対中だけ +★1 として扱う。
+ // スタッフ本人の恒久能力は変えない。
+ selected.consultBoost=selected.consultBoost||{};
+ opps.forEach(k=>{
+   selected.consultBoost[k]=Math.min(1,5-(s.proposal[k]||1));
+ });
+
+ score+=5;
+ if(opps.length){
+   log(`💬 指示：「${selected.lane}、相談に行って」→ ${opps.map(k=>opportunityIcons[k]||k).join("")} をまとめて強化（5分消費）`,"good");
+ }else{
+   log(`💬 指示：「${selected.lane}、相談に行って」（5分消費）`,"");
+ }
+ renderBlocks(); updateScore(); closeModal();
 }
 function check30(){
  if(!selected)return;selected.check30Done=true;score+=5;
@@ -249,7 +418,21 @@ function triggerNeed(b,label){
 function randomEvent(){
  const r=Math.random();
  if(r<.18){
-   const arr=["支払い","機種変更","故障","プラン相談","光相談"];const t=arr[Math.floor(Math.random()*arr.length)];
+   // PI/光相談は当日各1件以下。その他は通常抽選。
+   let walkWeights=[
+     {type:"支払い",w:8},
+     {type:"機種変更",w:13},
+     {type:"故障",w:21},
+     {type:"プラン相談",w:20},
+     {type:"その他",w:18},
+     {type:"操作",w:7},
+     {type:"簡易",w:5}
+   ];
+   if(dailyWalkInCounts.PI<1)walkWeights.push({type:"PI",w:2});
+   if(dailyWalkInCounts["光相談"]<1)walkWeights.push({type:"光相談",w:3});
+   const t=weightedChoice(walkWeights);
+   if(t==="PI")dailyWalkInCounts.PI++;
+   if(t==="光相談")dailyWalkInCounts["光相談"]++;
    addBlock("当日",now,t,{state:"yellow",source:"当日"});log(`🚶 当日来店：${t}`,"alert");
  }else if(r<.30){
    const f=blocks.filter(b=>b.start>now&&b.source==="予約"&&!b.addressee&&b.state==="white");
@@ -288,7 +471,35 @@ function renderStaff(){
    staffStrip.innerHTML+=`<div class="staffcard"><div class="name">${n}</div><span class="badge">Lv.${s.level}</span>${s.role?`<span class="badge role">${s.role}</span>`:""}<span class="badge ${tc}">${s.time}</span><div>${top.map(k=>`${k} ★${s.proposal[k]}`).join("<br>")}</div></div>`;
  });
 }
-function renderSales(){salesBoard.innerHTML=salesKeys.map(k=>`<span class="pill">${k}: <b>${sales[k]}</b></span>`).join("")}
+function renderSales(){
+  const items=[
+    {label:"💎 PLATINUM",current:sales["PLATINUM"]||0,target:2},
+    {label:"💡 光",current:sales["光"]||0,target:3},
+    {label:"💳 GOLD",current:sales["GOLD"]||0,target:4},
+    {label:"👿 アフィリエイト",current:sales["アフィリエイト"]||0,target:5},
+    {label:"🔥 でんき・ガス",current:sales["でんき・ガス"]||0,target:3}
+  ];
+  targetBoard.innerHTML=items.map(x=>{
+    const done=x.current>=x.target;
+    return `<span class="pill" style="${done?"font-weight:800;border-width:2px":""}">${done?"達成 ♪ ":""}${x.label}：<b>${x.current} / ${x.target}</b></span>`;
+  }).join("");
+}
+function checkTargets(){
+  const checks=[
+    ["PLATINUM",sales["PLATINUM"]||0,2],
+    ["光",sales["光"]||0,3],
+    ["GOLD",sales["GOLD"]||0,4],
+    ["アフィリエイト",sales["アフィリエイト"]||0,5],
+    ["でんき・ガス",sales["でんき・ガス"]||0,3]
+  ];
+  checks.forEach(([name,current,target])=>{
+    if(current>=target && !achievedTargets.has(name)){
+      achievedTargets.add(name);
+      score+=20;
+      log(`🏆 本日目標達成：${name} ${current}/${target}　+20`,"good");
+    }
+  });
+}
 function updateScore(){
  const sp=Object.entries(sales).reduce((a,[k,v])=>a+salesValues[k]*v,0);
  document.getElementById("score").textContent=score+sp;rtScoreEl=document.getElementById("rtScore");rtScoreEl.textContent=rtScore;bossCountEl=document.getElementById("bossCount");bossCountEl.textContent=bossCount;salesScore.textContent=sp;renderSales();
@@ -297,19 +508,183 @@ function highlightNow(){document.querySelectorAll("#grid tr").forEach(r=>r.class
 function tick(){now+=15;if(now>END){pauseGame();alert("営業終了");return;}highlightNow();updateWorld()}
 function startGame(){if(running)return;running=true;timer=setInterval(tick,Number(speedSel.value)*1000);log("▶ 営業開始","")}
 function pauseGame(){running=false;if(timer){clearInterval(timer);timer=null}log("⏸ 一時停止","")}
-function seed(){
- addBlock("A",600,"PI",{locked:true,addressee:"A"});
- addBlock("B",600,"故障");
- addBlock("C",660,"光相談");
- addBlock("D",690,"機種変更");
- addBlock("A",750,"休憩",{state:"blue"});
- addBlock("B",810,"休憩",{state:"blue"});
- addBlock("C",870,"休憩",{state:"blue"});
- addBlock("D",930,"休憩",{state:"blue"});
- addBlock("ヘルパー",720,"新規",{duration:60,source:"ヘルパー商談"});
+function weightedChoice(items){
+  const total=items.reduce((a,x)=>a+x.w,0);
+  let r=Math.random()*total;
+  for(const x of items){r-=x.w;if(r<=0)return x.type;}
+  return items[items.length-1].type;
 }
-startBtn.onclick=startGame;pauseBtn.onclick=pauseGame;resetBtn.onclick=()=>location.reload();speedSel.onchange=()=>{if(running){pauseGame();startGame()}};
-renderGrid();renderStaff();seed();renderSales();updateScore();highlightNow();log("準備完了。開始を押してください","");
+function randomProcFor(name){
+  const s=staff[name];
+  if(!s)return "その他";
+
+  // 件数ベースの目安：
+  // 操作+簡易（30分）は合計最大約15%。
+  // プラン相談・その他・故障を厚めにする。
+  const weights=[
+    {type:"PI",w:3},
+    {type:"新規",w:9},
+    {type:"機種変更",w:18},
+    {type:"故障",w:17},
+    {type:"プラン相談",w:18},
+    {type:"光相談",w:4},
+    {type:"その他",w:16},
+    {type:"操作",w:8},
+    {type:"簡易",w:7}
+  ].filter(x=>s.skills.includes(x.type));
+
+  return weightedChoice(weights);
+}
+function overlaps(lane,start,duration){
+  return blocks.some(b=>b.lane===lane && start < b.start+b.duration && start+duration > b.start);
+}
+function freeFor(lane,start,duration){
+  return start>=START && start+duration<=END && !overlaps(lane,start,duration);
+}
+function reserveBreaks(regulars){
+  // 休憩は開始前から必ず60分確保。昼前後に分散。
+  const starts=[690,720,750,780,810,840,870,900];
+  regulars.forEach((n,i)=>{
+    let preferred=starts[i%starts.length];
+    let candidates=[preferred,preferred+15,preferred-15,preferred+30,preferred-30,preferred+45,preferred-45];
+    let t=candidates.find(x=>freeFor(n,x,60));
+    if(t===undefined){
+      for(let x=660;x<=900;x+=15){ if(freeFor(n,x,60)){t=x;break;} }
+    }
+    if(t!==undefined)addBlock(n,t,"休憩",{state:"blue",source:"休憩"});
+  });
+}
+let oddStartBudget=2;
+let dailyInitialCounts={PI:0,"光相談":0};
+let dailyWalkInCounts={PI:0,"光相談":0};
+
+function allowedInitialType(type){
+  if(type==="PI" && dailyInitialCounts.PI>=2)return false;
+  if(type==="光相談" && dailyInitialCounts["光相談"]>=1)return false;
+  return true;
+}
+function noteInitialType(type){
+  if(type==="PI")dailyInitialCounts.PI++;
+  if(type==="光相談")dailyInitialCounts["光相談"]++;
+}
+function preferredStarts(ps,pe,dur){
+  let normal=[],odd=[];
+  for(let t=ps;t+dur<=pe;t+=15){
+    if(t%30===0)normal.push(t);
+    else odd.push(t);
+  }
+  // 基本は00/30開始。15/45開始は全店合計2件まで。
+  return oddStartBudget>0 ? normal.concat(odd) : normal;
+}
+function fillBalancedReservations(name,targetRatio){
+  // 10-13 / 13-16 / 16-19 を別々に埋め、空きを全時間帯へ散らす。
+  const periods=[[START,780],[780,960],[960,END]];
+  periods.forEach(([ps,pe])=>{
+    const target=(pe-ps)*targetRatio;
+    let occupied=blocks.filter(b=>b.lane===name && b.start<pe && b.start+b.duration>ps)
+      .reduce((sum,b)=>sum+Math.max(0,Math.min(pe,b.start+b.duration)-Math.max(ps,b.start)),0);
+    let attempts=0;
+    while(occupied<target && attempts<120){
+      attempts++;
+      let proc=randomProcFor(name);
+      let guard=0;
+      while(!allowedInitialType(proc) && guard<20){proc=randomProcFor(name);guard++;}
+      if(!allowedInitialType(proc)){attempts++;continue;}
+      const dur=procedures[proc];
+      const starts=preferredStarts(ps,pe,dur);
+      let possible=starts.filter(t=>freeFor(name,t,dur));
+      if(!possible.length)break;
+
+      // 00/30開始を優先し、15/45開始は1日2件以下。
+      let normal=possible.filter(t=>t%30===0);
+      let t;
+      if(normal.length && (oddStartBudget<=0 || Math.random()<.94)){
+        t=normal[Math.floor(Math.random()*normal.length)];
+      }else{
+        const odd=possible.filter(t=>t%30!==0);
+        if(odd.length && oddStartBudget>0){
+          t=odd[Math.floor(Math.random()*odd.length)];
+          oddStartBudget--;
+        }else if(normal.length){
+          t=normal[Math.floor(Math.random()*normal.length)];
+        }else break;
+      }
+      addBlock(name,t,proc,{state:"white",source:"予約"});
+      noteInitialType(proc);
+      occupied+=dur;
+    }
+  });
+}
+function ensureHelperCapacity(regulars){
+  // ヘルパー終了後60分以内に、少なくとも1つ登録可能な空きがある商談だけ作る。
+  const helperDeals=[
+    {start:630,type:"新規",dealDur:60,regDur:90},
+    {start:810,type:"光相談",dealDur:60,regDur:60},
+    {start:990,type:"機種変更",dealDur:60,regDur:90}
+  ];
+  helperDeals.forEach(d=>{
+    const finish=d.start+d.dealDur;
+    let hasSpace=false;
+    for(const n of regulars){
+      if(staff[n]?.level==="新人") continue;
+      for(let t=finish;t<=finish+60;t+=15){
+        if(freeFor(n,t,d.regDur)){hasSpace=true;break;}
+      }
+      if(hasSpace)break;
+    }
+    // 容量がなければ、該当時間帯の通常予約を1件だけ予備へ退避して余白を作る。
+    if(!hasSpace){
+      const candidates=blocks.filter(b=>
+        regulars.includes(b.lane) &&
+        staff[b.lane]?.level!=="新人" &&
+        b.source==="予約" &&
+        b.start>=finish && b.start<finish+75 &&
+        !b.addressee
+      );
+      if(candidates.length){
+        const victim=candidates.sort((a,b)=>b.duration-a.duration)[0];
+        victim.lane="予備";
+        log(`🧩 初期調整：ヘルパー登録余白を確保`,"");
+      }
+    }
+    addBlock("ヘルパー",d.start,d.type,{duration:d.dealDur,state:"white",source:"ヘルパー商談"});
+  });
+}
+function seed(){
+  const regulars=lanes.filter(x=>x.startsWith("スタッフ")||x.startsWith("新人"));
+
+  // 1. 休憩を先に確保
+  reserveBreaks(regulars);
+
+  // 2. 予約密度：平日55〜60%、休日60〜65%
+  const target=dayMode==="weekday" ? .575 : .625;
+  regulars.forEach(n=>fillBalancedReservations(n,target));
+
+  // 3. 宛予約は少数。空いている場所にのみ入れる。
+  const candidates=regulars.filter(x=>staff[x]?.level!=="新人");
+  const targetTimes=[615,930];
+  candidates.slice(0,2).forEach((n,i)=>{
+    const t=targetTimes[i];
+    if(freeFor(n,t,90))addBlock(n,t,"機種変更",{locked:true,addressee:n,state:"white",source:"宛予約"});
+  });
+
+  // 4. ヘルパー案件。登録不能で開始しないよう最低限の余白を確認。
+  ensureHelperCapacity(regulars);
+}
+startBtn.onclick=startGame;
+pauseBtn.onclick=pauseGame;
+resetBtn.onclick=()=>location.reload();
+speedSel.onchange=()=>{if(running){pauseGame();startGame()}};
+dayModeSel.onchange=()=>{
+  dayMode=dayModeSel.value;
+  if(running) pauseGame();
+  now=START; blocks=[]; nextId=1; pending=[]; score=0; rtScore=100; bossCount=0;
+  oddStartBudget=2; dailyInitialCounts={PI:0,"光相談":0}; dailyWalkInCounts={PI:0,"光相談":0}; achievedTargets=new Set();
+  sales={}; salesKeys.forEach(k=>sales[k]=0);
+  buildLanes(); buildStaff(); renderGrid(); renderStaff(); seed(); renderSales(); updateScore(); highlightNow();
+  log(dayMode==="weekday"?"📅 平日モードに変更":"📅 休日モードに変更","");
+};
+buildLanes();buildStaff();renderGrid();renderStaff();seed();renderSales();updateScore();highlightNow();log("準備完了。開始を押してください","");
 </script>
 </body>
 </html>
