@@ -17,10 +17,19 @@ header{position:sticky;top:0;z-index:40;background:var(--excel);color:#fff;paddi
 button,select{border:1px solid #c7ccd1;background:#fff;border-radius:8px;padding:8px 10px;font-size:14px;min-height:38px}
 button.primary{background:#0f5132;color:#fff;border-color:#0f5132}
 .summarybar{display:grid;grid-template-columns:repeat(4,minmax(110px,1fr));gap:8px;padding:8px;background:#fff;border-bottom:1px solid #d7dbe0}
+.targetTop{
+  position:sticky;top:62px;z-index:34;background:#fffdf5;
+  border-bottom:1px solid #d7dbe0;padding:8px 10px;
+}
+.targetTitle{font-weight:800;font-size:14px;margin-bottom:6px}
+.targetTop .pill{
+  background:#fff;border:2px solid #d9d9d9;font-size:13px;padding:7px 10px;
+}
+
 .metric{background:#f8fafc;border:1px solid #dce1e6;border-radius:8px;padding:6px 8px;font-size:12px}
 .metric b{display:block;font-size:16px}
 .staffstrip{display:flex;gap:8px;overflow-x:auto;padding:8px;background:#f7f9fb;border-bottom:1px solid #d7dbe0}
-.staffcard{min-width:170px;background:#fff;border:1px solid #d7dbe0;border-radius:9px;padding:7px;font-size:12px}
+.staffcard{min-width:205px;background:#fff;border:1px solid #d7dbe0;border-radius:9px;padding:7px;font-size:12px}
 .name{font-weight:800;font-size:14px}
 .badge{display:inline-block;padding:2px 6px;border-radius:999px;background:#e9eef5;margin:2px 2px 0 0}
 .role{background:#fff2c7}.stable{background:#dff3e5}.normal{background:#e7eefc}.risky{background:#fde2e2}
@@ -35,14 +44,37 @@ th.time,td.time{min-width:var(--time-w);width:var(--time-w);background:#fafafa;p
 .currentRow td{box-shadow:inset 0 2px 0 #1d4ed8,inset 0 -2px 0 #1d4ed8}
 .block{position:absolute;left:2px;right:2px;top:2px;border:1px solid #7b8085;border-radius:5px;padding:4px 5px;font-size:11px;line-height:1.25;overflow:hidden;z-index:4;user-select:none;-webkit-user-select:none;touch-action:none}
 .block .title{font-weight:800}.block .sub{font-size:10px;opacity:.8}
+.resizeHandle{
+  position:absolute;left:0;right:0;bottom:0;height:12px;
+  background:rgba(0,0,0,.08);border-top:1px dashed rgba(0,0,0,.35);
+  cursor:ns-resize;touch-action:none;text-align:center;font-size:10px;line-height:11px;
+}
+.resizeHandle::after{content:"↕";opacity:.65}
+
 .st-white{background:var(--white)}.st-yellow{background:var(--yellow)}.st-orange{background:var(--orange)}.st-gray{background:var(--gray)}.st-red{background:var(--red)}.st-green{background:var(--green)}.st-blue{background:var(--blue)}.st-pink{background:var(--pink)}
 .dragghost{opacity:.65}
 .panel{background:#fff;margin:8px;border:1px solid #d7dbe0;border-radius:10px;padding:10px}
 .panel h3{margin:0 0 8px;font-size:15px}
 .flex{display:flex;gap:7px;flex-wrap:wrap}
 .pill{border:1px solid #ccd2d8;background:#f8fafc;border-radius:999px;padding:5px 8px;font-size:12px}
-#eventLog{max-height:150px;overflow:auto;font-size:12px;background:#0e1726;color:#e9f0f8;padding:8px;border-radius:8px}
-.logrow{margin-bottom:5px}.alert{color:#ffcf70}.good{color:#9be7a7}.bad{color:#ff8d8d}
+#eventLog{
+  max-height:100%;overflow:auto;font-size:13px;background:#f8fafc;color:#1f2937;
+  padding:8px;border-radius:8px;border:1px solid #d7dbe0;
+}
+.eventHeader{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+.eventHeader h3{margin:0}
+.logrow{
+  margin-bottom:7px;padding:8px 9px;border-radius:8px;background:#fff;
+  border-left:5px solid #94a3b8;box-shadow:0 1px 2px rgba(0,0,0,.04);
+  line-height:1.45;
+}
+.logrow.alert{color:#7a4b00;border-left-color:#f59e0b;background:#fff8e7}
+.logrow.good{color:#14532d;border-left-color:#22c55e;background:#effcf3}
+.logrow.bad{color:#7f1d1d;border-left-color:#ef4444;background:#fff1f1}
+.logrow.arrival{color:#6b4f00;border-left-color:#eab308;background:#fffbea}
+.logrow.cancel{color:#7f1d1d;border-left-color:#dc2626;background:#fff1f2}
+.logrow.info{color:#1e3a8a;border-left-color:#3b82f6;background:#eff6ff}
+
 .modalBackdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:flex-end;justify-content:center}
 .modal{background:#fff;width:min(680px,100%);max-height:82vh;overflow:auto;border-radius:14px 14px 0 0;padding:14px}
 .modal h3{margin:0 0 8px}.modal .close{float:right}
@@ -57,6 +89,8 @@ th.time,td.time{min-width:var(--time-w);width:var(--time-w);background:#fafafa;p
 }
 @media(max-width:899px){
   .sideEvent{margin:8px}
+  .targetTop{top:104px}
+  #eventLog{max-height:260px}
 }
 </style>
 </head>
@@ -67,9 +101,9 @@ th.time,td.time{min-width:var(--time-w);width:var(--time-w);background:#fafafa;p
     <button id="startBtn" class="primary">▶ 開始</button>
     <button id="pauseBtn">⏸ 停止</button>
     <select id="speedSel">
-      <option value="8">ゆっくり（8秒=15分）</option>
-      <option value="5" selected>標準（5秒=15分）</option>
-      <option value="3">速い（3秒=15分）</option>
+      <option value="60">ゆっくり（60秒=15分）</option>
+      <option value="45" selected>標準（45秒=15分）</option>
+      <option value="30">速い（30秒=15分）</option>
     </select>
     <select id="dayModeSel">
       <option value="weekday" selected>平日</option>
@@ -86,12 +120,20 @@ th.time,td.time{min-width:var(--time-w);width:var(--time-w);background:#fafafa;p
   <div class="metric">上司指摘<b id="bossCount">0</b></div>
 </div>
 
+<div class="targetTop">
+  <div class="targetTitle">本日の目標 / 実績</div>
+  <div class="flex" id="targetBoard"></div>
+</div>
+
 <div id="staffStrip" class="staffstrip"></div>
 
 <div class="desktopLayout">
   <div id="boardWrap"><table id="grid"></table></div>
   <div class="sideEvent panel">
-    <h3>イベントログ</h3>
+    <div class="eventHeader">
+      <h3>イベントログ</h3>
+      <span class="small">新しいイベントが上に表示</span>
+    </div>
     <div id="eventLog"></div>
   </div>
 </div>
@@ -103,14 +145,10 @@ th.time,td.time{min-width:var(--time-w);width:var(--time-w);background:#fafafa;p
     <span class="pill">iPhone：ブロックを約0.45秒長押し→移動</span>
     <span class="pill">タップ：状態変更・相談・30分前確認</span>
     <span class="pill">初期予約：平日 約55〜60%／休日 約60〜65%</span>
+    <span class="pill">当日客：15分カード→内容確認1分→必要時間で配置</span>
     <span class="pill">休憩60分は開始前に配置済み</span>
     <span class="pill">30分枠は件数ベース約15%以下</span>
   </div>
-</div>
-
-<div class="panel">
-  <h3>本日の目標 / 実績</h3>
-  <div class="flex" id="targetBoard"></div>
 </div>
 
 <div class="modalBackdrop" id="modalBackdrop">
@@ -174,7 +212,16 @@ let achievedTargets=new Set();
 
 function fmt(m){return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0")}
 function slots(m){return Math.max(1,Math.ceil(m/15))}
-function log(txt,cls=""){eventLog.innerHTML=`<div class="logrow ${cls}">[${fmt(now)}] ${txt}</div>`+eventLog.innerHTML}
+function log(txt,cls=""){
+  let auto=cls;
+  if(!auto){
+    if(txt.includes("来店"))auto="arrival";
+    else if(txt.includes("キャンセル"))auto="cancel";
+    else if(txt.includes("延長")||txt.includes("追加提案"))auto="alert";
+    else if(txt.includes("確認")||txt.includes("移動")||txt.includes("相談"))auto="info";
+  }
+  eventLog.innerHTML=`<div class="logrow ${auto}"><b>${fmt(now)}</b>　${txt}</div>`+eventLog.innerHTML;
+}
 function renderGrid(){
  let h="<tr><th class='time'>時間</th>";lanes.forEach(l=>h+=`<th>${l}</th>`);h+="</tr>";
  for(let t=START;t<=END;t+=15){
@@ -227,7 +274,10 @@ function opportunityText(b){
   return b.opportunities.map(k=>opportunityIcons[k]||"").join("");
 }
 function addBlock(lane,start,type,opt={}){
- const b={id:nextId++,lane,start,type,duration:opt.duration??procedures[type]??15,state:opt.state||"white",locked:!!opt.locked,addressee:opt.addressee||null,source:opt.source||"予約",extended:0,check30Done:false,salesWon:[],salesTried:[],opportunities:opt.opportunities||makeOpportunities(type),consulted:false};
+ const b={id:nextId++,lane,start,type,duration:opt.duration??procedures[type]??15,state:opt.state||"white",locked:!!opt.locked,addressee:opt.addressee||null,source:opt.source||"予約",extended:0,check30Done:false,salesWon:[],salesTried:[],
+   opportunities:opt.opportunities!==undefined?opt.opportunities:makeOpportunities(type),
+   opportunitiesRevealed:opt.opportunitiesRevealed!==undefined?opt.opportunitiesRevealed:(opt.source!=="当日"),
+   inspected:false,consulted:false,originalDuration:opt.originalDuration??duration};
  blocks.push(b);renderBlocks();return b;
 }
 function stateClass(b){return b.addressee||b.locked?"st-pink":"st-"+b.state}
@@ -238,10 +288,12 @@ function renderBlocks(){
    const d=document.createElement("div");d.className=`block ${stateClass(b)}`;d.dataset.id=b.id;
    d.style.height=(slots(b.duration)*CELL_H-4)+"px";
    const opp=opportunityText(b);
-   const oppRow=opp?`<div class="sub">見込み：${opp}</div>`:"";
+   const oppRow=(b.opportunitiesRevealed&&opp)?`<div class="sub">見込み：${opp}</div>`:"";
+   const waitRow=(b.source==="当日"&&!b.inspected)?`<div class="sub">内容未確認</div>`:"";
    const consultRow=b.consulted?`<div class="sub">💬 相談済（見込み★+1）</div>`:"";
    const won=(b.salesWon&&b.salesWon.length)?`<div class="sub">成約：${b.salesWon.map(k=>k+" ♪").join("　")}</div>`:"";
-   d.innerHTML=`<div class="title">${b.addressee?b.addressee+"宛｜":""}${b.type}</div><div class="sub">${fmt(b.start)}-${fmt(b.start+b.duration)}</div>${oppRow}${consultRow}${won}`;
+   const canResize=!["休憩","延長","ご指摘対応","相談者"].includes(b.type) && !["当日","登録待ち","予備"].includes(b.lane);
+   d.innerHTML=`<div class="title">${b.addressee?b.addressee+"宛｜":""}${b.type}</div><div class="sub">${fmt(b.start)}-${fmt(b.start+b.duration)}</div>${waitRow}${oppRow}${consultRow}${won}${canResize?'<div class="resizeHandle"></div>':''}`;
    bindBlock(d,b);cell.appendChild(d);
  });
  highlightNow();
@@ -264,7 +316,35 @@ function bindBlock(el,b){
    if(dragging){dragging=false;el.classList.remove("dragghost");if(targetLane)moveBlock(b,targetLane,targetTime);return;}
    openModal(b);
  });
- el.addEventListener("click",()=>{if(window.matchMedia("(pointer:fine)").matches)openModal(b)});
+ el.addEventListener("click",e=>{if(e.target.closest(".resizeHandle"))return;if(window.matchMedia("(pointer:fine)").matches)openModal(b);});
+
+ const handle=el.querySelector(".resizeHandle");
+ if(handle){
+   let resizing=false,startY=0,startDuration=0,lastSteps=0;
+   handle.addEventListener("pointerdown",e=>{
+     e.stopPropagation();e.preventDefault();
+     resizing=true;startY=e.clientY;startDuration=b.duration;lastSteps=0;
+     handle.setPointerCapture(e.pointerId);
+   });
+   handle.addEventListener("pointermove",e=>{
+     if(!resizing)return;
+     e.stopPropagation();e.preventDefault();
+     const dy=e.clientY-startY;
+     const steps=Math.round(dy/42);
+     if(steps===lastSteps)return;
+     lastSteps=steps;
+     const minDur=15;
+     const newDur=Math.max(minDur,startDuration+steps*15);
+     setBlockDurationFromResize(b,newDur);
+   });
+   handle.addEventListener("pointerup",e=>{
+     if(!resizing)return;
+     resizing=false;e.stopPropagation();e.preventDefault();
+     try{handle.releasePointerCapture(e.pointerId)}catch(_){}
+   });
+   handle.addEventListener("pointercancel",()=>{resizing=false});
+ }
+
 }
 function canDo(lane,type,b){
  if(["当日","登録待ち","予備"].includes(lane))return true;
@@ -276,16 +356,29 @@ function canDo(lane,type,b){
 function moveBlock(b,lane,start){
  if((b.locked||b.addressee)&&lane!==b.lane){log(`🔒 ${b.addressee||b.lane}宛は担当変更不可`,"bad");return;}
  if(!canDo(lane,b.type,b)){log(`❌ ${lane}は${b.type}対応不可`,"bad");return;}
- b.lane=lane;b.start=start;renderBlocks();log(`↔ ${b.type} → ${lane} ${fmt(start)}`,"");
+ b.lane=lane;b.start=start;
+ if(b.source==="当日" && !["当日","登録待ち","予備"].includes(lane) && b.requiredDuration){
+   b.duration=b.requiredDuration + (b.inspected?1:0);
+ }
+ renderBlocks();log(`↔ ${b.type} → ${lane} ${fmt(start)}`,"");
 }
 function openModal(b){
  selected=b;const s=staff[b.lane];
  let h=`<h3>${b.addressee?b.addressee+"宛｜":""}${b.type}</h3><div class="small">${b.lane}｜${fmt(b.start)}〜${fmt(b.start+b.duration)}</div>`;
  if(s)h+=`<p><b>${b.lane}</b> Lv.${s.level}｜時間管理：${s.time}</p>`;
- if(b.opportunities&&b.opportunities.length){
-   h+=`<p><b>この予約の見込み：</b> ${b.opportunities.map(k=>(opportunityIcons[k]||"")+k).join("　")}</p>`;
+ if(b.opportunitiesRevealed){
+   if(b.opportunities&&b.opportunities.length){
+     h+=`<p><b>この予約の見込み：</b> ${b.opportunities.map(k=>(opportunityIcons[k]||"")+k).join("　")}</p>`;
+   }else{
+     h+=`<p class="small">この予約は実績見込み表示なし</p>`;
+   }
  }else{
-   h+=`<p class="small">この予約は実績見込み表示なし</p>`;
+   h+=`<p class="small">提案見込みは内容確認後に表示されます。</p>`;
+ }
+ if(b.source==="当日"&&!b.inspected){
+   h+=`<h4>当日来店</h4>
+   <button onclick="inspectWalkIn()">🔎 内容確認（1分消費）</button>
+   <div class="small">確認すると、このお客様で提案できる項目が表示されます。</div>`;
  }
  h+=`<div class="actionGrid">
  <button onclick="setState('white')">⬜ 来店前</button>
@@ -293,11 +386,13 @@ function openModal(b){
  <button onclick="setState('orange')">🟧 手続き中</button>
  <button onclick="setState('gray')">🩶 終了</button>
  <button onclick="setState('red')">🟥 キャンセル</button>
- <button onclick="extendSel(15)">🟩 +15延長</button>
- <button onclick="extendSel(30)">🟩 +30延長</button>
+ <button onclick="adjustDuration(15)">🟩 +15分</button>
+ <button onclick="adjustDuration(30)">🟩 +30分</button>
+ <button onclick="adjustDuration(-15)">⬇ -15分</button>
+ <button onclick="adjustDuration(-30)">⬇ -30分</button>
  <button onclick="check30()">⏱ 終了見込み確認</button>
  </div>`;
- if(s&&b.state==="orange"){
+ if(s&&b.state==="orange"&&b.opportunitiesRevealed){
    h+=`<h4>提案結果</h4><div class="small">★が高いほど成約しやすくなります。提案した項目だけ判定してください。</div><div class="actionGrid">`;
    salesKeys.forEach(k=>{
      const tried=(b.salesTried||[]).includes(k);
@@ -324,7 +419,7 @@ modalClose.onclick=closeModal;modalBackdrop.onclick=e=>{if(e.target===modalBackd
 function setState(st){
  if(!selected)return;selected.state=st;
  const p=pending.find(x=>x.id===selected.id&&!x.done);
- if(p){
+ if(p && (!p.required || p.required===st)){
    const sec=(Date.now()-p.t)/1000;p.done=true;
    if(sec<=15){score+=3;log(`✅ 状態反映 ${sec.toFixed(1)}秒`,"good")}
    else if(sec<=30){score-=2;rtScore=Math.max(0,rtScore-2);log(`⚠ 反映遅延 ${sec.toFixed(1)}秒`,"alert")}
@@ -337,6 +432,14 @@ function judgeSale(k){
  selected.salesTried=selected.salesTried||[];
  selected.salesWon=selected.salesWon||[];
  if(selected.salesTried.includes(k))return;
+
+ // PLATINUMとGOLDは同時成約不可
+ if((k==="PLATINUM" && selected.salesWon.includes("GOLD")) ||
+    (k==="GOLD" && selected.salesWon.includes("PLATINUM"))){
+   log(`ℹ PLATINUMとGOLDは同時成約不可`,"");
+   closeModal();
+   return;
+ }
 
  selected.salesTried.push(k);
  const baseStar=s.proposal[k]||1;
@@ -352,6 +455,8 @@ function judgeSale(k){
 
  if(success){
    selected.salesWon.push(k);
+   if(k==="PLATINUM" && !selected.salesTried.includes("GOLD")) selected.salesTried.push("GOLD");
+   if(k==="GOLD" && !selected.salesTried.includes("PLATINUM")) selected.salesTried.push("PLATINUM");
    sales[k]=(sales[k]||0)+1;
    score+=3;
    log(`🎉 ${selected.lane}「${selected.type}」：${k} 成約！`,"good");
@@ -367,6 +472,17 @@ function judgeSale(k){
    // 失敗時は表記しない
  }
  checkTargets(); renderBlocks(); renderSales(); updateScore(); openModal(selected);
+}
+function inspectWalkIn(){
+ if(!selected)return;
+ if(selected.inspected){closeModal();return;}
+ selected.inspected=true;
+ selected.opportunitiesRevealed=true;
+ // 内容確認で1分消費。15分グリッドは崩さず、応対時間へ1分を加算。
+ selected.duration+=1;
+ score+=2;
+ log(`🔎 当日来店「${selected.type}」の内容確認（1分消費）→ 提案見込みを表示`,"good");
+ renderBlocks();updateScore();closeModal();
 }
 function consultAll(){
  if(!selected)return;
@@ -403,40 +519,91 @@ function check30(){
  else if(t==="比較的安定"&&Math.random()<.28)m="15分延長の可能性";
  log(`🔎 ${selected.lane}へ終了見込み確認：${m} +5`,"good");updateScore();closeModal();
 }
+
+function removeExtensionBlocksFor(parent){
+  blocks=blocks.filter(x=>!(x.source==="延長" && x.parentId===parent.id));
+}
+function rebuildExtensionFor(parent){
+  removeExtensionBlocksFor(parent);
+  const extra=Math.max(0,parent.duration-parent.originalDuration);
+  parent.extended=extra;
+  if(extra>0){
+    const ext={
+      id:nextId++,lane:parent.lane,start:parent.start+parent.originalDuration,type:"延長",
+      duration:extra,state:"green",locked:false,addressee:null,source:"延長",
+      extended:0,check30Done:false,salesWon:[],salesTried:[],opportunities:[],
+      opportunitiesRevealed:true,inspected:false,consulted:false,
+      originalDuration:extra,parentId:parent.id
+    };
+    blocks.push(ext);
+  }
+}
+function setBlockDurationFromResize(b,newDuration){
+  if(b.type==="延長")return;
+  const old=b.duration;
+  b.duration=newDuration;
+  rebuildExtensionFor(b);
+  renderBlocks();
+  if(newDuration>old) log(`↕ ${b.lane}「${b.type}」を${newDuration-old}分延長`,"alert");
+  else if(newDuration<old) log(`↕ ${b.lane}「${b.type}」を${old-newDuration}分短縮`,"good");
+}
+
+function adjustDuration(m){
+ if(!selected)return;
+ const next=Math.max(15,selected.duration+m);
+ setBlockDurationFromResize(selected,next);
+ closeModal();
+}
 function extendSel(m){
- if(!selected)return;selected.duration+=m;selected.extended+=m;
- addBlock(selected.lane,selected.start+selected.duration-m,"延長",{duration:m,state:"green",source:"延長"});log(`🟩 +${m}分延長`,"alert");renderBlocks();closeModal();
+ if(!selected)return;
+ setBlockDurationFromResize(selected,selected.duration+m);
+ closeModal();
 }
 function helperToReg(){
  if(!selected)return;const d=["PI","新規","機種変更"].includes(selected.type)?90:60;
  addBlock("登録待ち",now,selected.type,{duration:d,state:"yellow",source:"ヘルパー登録"});selected.state="gray";log(`📥 ヘルパー案件を登録待ちへ`,"good");renderBlocks();closeModal();
 }
 function triggerNeed(b,label){
- pending.push({id:b.id,t:Date.now(),done:false,small:false});log(`📣 ${b.lane}「${b.type}」${label}。色を更新してください`,"alert");
+ pending.push({id:b.id,t:Date.now(),done:false,small:false,required:label==="キャンセル"?"red":label==="来店"?"yellow":null});
+ if(label==="来店") log(`🟨 来店：${b.lane}「${b.type}」→ 黄色へ更新してください`,"alert");
+ else if(label==="キャンセル") log(`🟥 キャンセル：${b.lane}「${b.type}」→ 赤へ更新してください`,"bad");
+ else log(`📣 ${b.lane}「${b.type}」${label}。色を更新してください`,"alert");
  setTimeout(()=>{const p=pending.find(x=>x.id===b.id&&!x.done);if(p){score-=5;rtScore=Math.max(0,rtScore-5);bossCount++;log(`👔 上司：「${b.lane}の${b.type}、色変えて」 -5`,"bad");updateScore()}},30000);
 }
 function randomEvent(){
  const r=Math.random();
  if(r<.18){
-   // PI/光相談は当日各1件以下。その他は通常抽選。
-   let walkWeights=[
-     {type:"支払い",w:8},
-     {type:"機種変更",w:13},
-     {type:"故障",w:21},
-     {type:"プラン相談",w:20},
-     {type:"その他",w:18},
-     {type:"操作",w:7},
-     {type:"簡易",w:5}
-   ];
-   if(dailyWalkInCounts.PI<1)walkWeights.push({type:"PI",w:2});
-   if(dailyWalkInCounts["光相談"]<1)walkWeights.push({type:"光相談",w:3});
-   const t=weightedChoice(walkWeights);
-   if(t==="PI")dailyWalkInCounts.PI++;
-   if(t==="光相談")dailyWalkInCounts["光相談"]++;
-   addBlock("当日",now,t,{state:"yellow",source:"当日"});log(`🚶 当日来店：${t}`,"alert");
+   // 当日は1〜3名が同時来店することがある。
+   const count=Math.random()<.22?3:(Math.random()<.55?2:1);
+   const arrivals=[];
+   for(let i=0;i<count;i++){
+     let walkWeights=[
+       {type:"支払い",w:8},
+       {type:"機種変更",w:13},
+       {type:"故障",w:21},
+       {type:"プラン相談",w:20},
+       {type:"その他",w:18},
+       {type:"操作",w:7},
+       {type:"簡易",w:5}
+     ];
+     if(dailyWalkInCounts.PI<1)walkWeights.push({type:"PI",w:2});
+     if(dailyWalkInCounts["光相談"]<1)walkWeights.push({type:"光相談",w:3});
+     const t=weightedChoice(walkWeights);
+     if(t==="PI")dailyWalkInCounts.PI++;
+     if(t==="光相談")dailyWalkInCounts["光相談"]++;
+     const fullDur=procedures[t]||60;
+     // 当日レーン上では15分カード。内容確認後、実際の必要時間は保持。
+     const b=addBlock("当日",now+i*15,t,{
+       duration:15,state:"yellow",source:"当日",
+       opportunities:makeOpportunities(t),opportunitiesRevealed:false
+     });
+     b.requiredDuration=fullDur;
+     arrivals.push(t);
+   }
+   log(`🚶 当日来店：${arrivals.join("・")}（${arrivals.length}名）`,"alert");
  }else if(r<.30){
    const f=blocks.filter(b=>b.start>now&&b.source==="予約"&&!b.addressee&&b.state==="white");
-   if(f.length){const b=f[Math.floor(Math.random()*f.length)];b.state="red";triggerNeed(b,"キャンセル");renderBlocks();}
+   if(f.length){const b=f[Math.floor(Math.random()*f.length)];triggerNeed(b,"キャンセル");renderBlocks();}
  }else if(r<.43){
    const a=blocks.filter(b=>b.state==="orange"&&staff[b.lane]);
    if(a.length){const b=a[Math.floor(Math.random()*a.length)];const m=Math.random()<.5?15:30;b.duration+=m;b.extended+=m;log(`⏳ ${b.lane}「${b.type}」報告なしで+${m}分延長`,"bad");renderBlocks();}
@@ -467,8 +634,22 @@ function renderStaff(){
  staffStrip.innerHTML="";
  Object.entries(staff).forEach(([n,s])=>{
    const tc=s.time==="安定◎"?"stable":s.time==="比較的安定"?"normal":"risky";
-   const top=salesKeys.slice().sort((a,b)=>s.proposal[b]-s.proposal[a]).slice(0,2);
-   staffStrip.innerHTML+=`<div class="staffcard"><div class="name">${n}</div><span class="badge">Lv.${s.level}</span>${s.role?`<span class="badge role">${s.role}</span>`:""}<span class="badge ${tc}">${s.time}</span><div>${top.map(k=>`${k} ★${s.proposal[k]}`).join("<br>")}</div></div>`;
+   const labels=[
+     ["PLATINUM","💎"],
+     ["光","💡"],
+     ["GOLD","💳"],
+     ["機種変更化","📱"],
+     ["でんき・ガス","🔥"],
+     ["アフィリエイト","👿"]
+   ];
+   const allProposal=labels.map(([k,icon])=>`${icon}${k} ★${s.proposal[k]??"-"}`).join("<br>");
+   staffStrip.innerHTML+=`<div class="staffcard">
+     <div class="name">${n}</div>
+     <span class="badge">Lv.${s.level}</span>
+     ${s.role?`<span class="badge role">${s.role}</span>`:""}
+     <span class="badge ${tc}">${s.time}</span>
+     <div class="proposal">${allProposal}</div>
+   </div>`;
  });
 }
 function renderSales(){
@@ -481,7 +662,11 @@ function renderSales(){
   ];
   targetBoard.innerHTML=items.map(x=>{
     const done=x.current>=x.target;
-    return `<span class="pill" style="${done?"font-weight:800;border-width:2px":""}">${done?"達成 ♪ ":""}${x.label}：<b>${x.current} / ${x.target}</b></span>`;
+    const pct=Math.min(100,Math.round((x.current/x.target)*100));
+    return `<span class="pill" style="${done?"font-weight:800;border-color:#22c55e;background:#effcf3":""}">
+      ${done?"達成 ♪ ":""}${x.label}：<b>${x.current} / ${x.target}</b>
+      <span style="display:inline-block;margin-left:6px;font-size:11px;color:#64748b">${pct}%</span>
+    </span>`;
   }).join("");
 }
 function checkTargets(){
@@ -619,8 +804,8 @@ function ensureHelperCapacity(regulars){
   // ヘルパー終了後60分以内に、少なくとも1つ登録可能な空きがある商談だけ作る。
   const helperDeals=[
     {start:630,type:"新規",dealDur:60,regDur:90},
-    {start:810,type:"光相談",dealDur:60,regDur:60},
-    {start:990,type:"機種変更",dealDur:60,regDur:90}
+    {start:870,type:"光相談",dealDur:60,regDur:60},
+    {start:1020,type:"機種変更",dealDur:60,regDur:90}
   ];
   helperDeals.forEach(d=>{
     const finish=d.start+d.dealDur;
@@ -655,6 +840,15 @@ function seed(){
 
   // 1. 休憩を先に確保
   reserveBreaks(regulars);
+  // ヘルパー・リーダー・副店長・店長にも60分休憩を事前配置
+  const managementBreaks=[
+    ["リーダー",720],["ヘルパー",780],["副店長",840],["店長",900]
+  ];
+  managementBreaks.forEach(([n,t])=>{
+    if(lanes.includes(n) && freeFor(n,t,60)){
+      addBlock(n,t,"休憩",{state:"blue",source:"休憩",opportunities:[],opportunitiesRevealed:true});
+    }
+  });
 
   // 2. 予約密度：平日55〜60%、休日60〜65%
   const target=dayMode==="weekday" ? .575 : .625;
