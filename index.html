@@ -7,7 +7,7 @@
 <style>
 :root{
   --cell-h:42px;--time-w:70px;--lane-w:122px;--grid:#cfd3d7;--head:#eef2f7;--excel:#217346;
-  --white:#fff;--yellow:#ffe680;--orange:#ffb347;--gray:#bfc3c7;--red:#ef6a6a;--green:#81c784;--blue:#72a9e6;--pink:#f4a6c1;
+  --white:#fff;--yellow:#ffe680;--orange:#ffb347;--gray:#bfc3c7;--red:#ef6a6a;--green:#81c784;--blue:#72a9e6;--pink:#f4a6c1;--purple:#b388eb;
 }
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f4f6f8;color:#1f2937}
@@ -51,7 +51,7 @@ th.time,td.time{min-width:var(--time-w);width:var(--time-w);background:#fafafa;p
 }
 .resizeHandle::after{content:"↕";opacity:.65}
 
-.st-white{background:var(--white)}.st-yellow{background:var(--yellow)}.st-orange{background:var(--orange)}.st-gray{background:var(--gray)}.st-red{background:var(--red)}.st-green{background:var(--green)}.st-blue{background:var(--blue)}.st-pink{background:var(--pink)}
+.st-white{background:var(--white)}.st-yellow{background:var(--yellow)}.st-orange{background:var(--orange)}.st-gray{background:var(--gray)}.st-red{background:var(--red)}.st-green{background:var(--green)}.st-blue{background:var(--blue)}.st-pink{background:var(--pink)}.st-purple{background:var(--purple)}
 .dragghost{opacity:.65}
 .panel{background:#fff;margin:8px;border:1px solid #d7dbe0;border-radius:10px;padding:10px}
 .panel h3{margin:0 0 8px;font-size:15px}
@@ -95,6 +95,120 @@ th.time,td.time{min-width:var(--time-w);width:var(--time-w);background:#fafafa;p
   .targetTop{top:104px}
   #eventLog{height:360px;min-height:360px;font-size:17px}
 }
+
+/* かんたんモード：スマホ横画面向け */
+body.easyMode{
+  --lane-w:104px;
+  --time-w:58px;
+}
+body.easyMode .staffcard{
+  min-width:170px;
+}
+body.easyMode .targetTop .pill{
+  font-size:12px;
+  padding:5px 7px;
+}
+body.easyMode #boardWrap{
+  height:64vh;
+}
+@media (orientation: landscape) and (max-width: 950px){
+  body.easyMode header{
+    padding:5px 8px;
+  }
+  body.easyMode .clock{
+    font-size:21px;
+  }
+  body.easyMode button,
+  body.easyMode select{
+    min-height:32px;
+    padding:5px 7px;
+    font-size:12px;
+  }
+  body.easyMode .summarybar{
+    grid-template-columns:repeat(4,minmax(86px,1fr));
+    gap:4px;
+    padding:4px;
+  }
+  body.easyMode .metric{
+    padding:4px 5px;
+    font-size:10px;
+  }
+  body.easyMode .metric b{
+    font-size:14px;
+  }
+  body.easyMode .targetTop{
+    position:relative;
+    top:auto;
+    padding:4px 6px;
+  }
+  body.easyMode .targetTitle{
+    font-size:12px;
+    margin-bottom:3px;
+  }
+  body.easyMode .staffstrip{
+    padding:4px;
+    gap:4px;
+    max-height:128px;
+  }
+  body.easyMode .staffcard{
+    min-width:145px;
+    padding:4px 5px;
+    font-size:10px;
+  }
+  body.easyMode .staffcard .name{
+    font-size:12px;
+  }
+  body.easyMode .desktopLayout{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) 250px;
+    gap:5px;
+    padding:5px;
+  }
+  body.easyMode #boardWrap{
+    height:63vh;
+    border:1px solid #d7dbe0;
+    border-radius:8px;
+  }
+  body.easyMode .sideEvent{
+    margin:0;
+    height:63vh;
+  }
+  body.easyMode #eventLog{
+    height:100%;
+    min-height:0;
+    font-size:14px;
+  }
+  body.easyMode th,
+  body.easyMode td{
+    min-width:96px;
+    height:38px;
+  }
+  body.easyMode th.time,
+  body.easyMode td.time{
+    min-width:55px;
+    width:55px;
+  }
+  body.easyMode .block{
+    font-size:10px;
+  }
+}
+
+/* 横持ち案内 */
+.rotateHint{
+  display:none;
+}
+@media (orientation: portrait) and (max-width: 650px){
+  body.easyMode .rotateHint{
+    display:block;
+    background:#fff3cd;
+    color:#664d03;
+    border:1px solid #ffecb5;
+    padding:7px 10px;
+    font-size:12px;
+    text-align:center;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -104,17 +218,19 @@ th.time,td.time{min-width:var(--time-w);width:var(--time-w);background:#fafafa;p
     <button id="startBtn" class="primary">▶ 開始</button>
     <button id="pauseBtn">⏸ 停止</button>
     <select id="speedSel">
-      <option value="60">ゆっくり（60秒=15分）</option>
-      <option value="45" selected>標準（45秒=15分）</option>
-      <option value="30">速い（30秒=15分）</option>
+      <option value="30">遅い（30秒=15分）</option>
+      <option value="25" selected>標準（25秒=15分）</option>
+      <option value="15">速い（15秒=15分）</option>
     </select>
     <select id="dayModeSel">
+      <option value="easy">かんたん</option>
       <option value="weekday" selected>平日</option>
       <option value="holiday">休日</option>
     </select>
     <button id="resetBtn">↺ リセット</button>
   </div>
 </header>
+<div class="rotateHint">📱 かんたんモードはスマホを横向きにすると操作しやすくなります</div>
 
 <div class="summarybar">
   <div class="metric">総合スコア<b id="score">0</b></div>
@@ -124,7 +240,7 @@ th.time,td.time{min-width:var(--time-w);width:var(--time-w);background:#fafafa;p
 </div>
 
 <div class="targetTop">
-  <div class="targetTitle">本日の目標 / 実績</div>
+  <div class="targetTitle">本日の目標・実績</div>
   <div class="flex" id="targetBoard"></div>
 </div>
 
@@ -150,12 +266,15 @@ th.time,td.time{min-width:var(--time-w);width:var(--time-w);background:#fafafa;p
     <span class="pill">Windows：ブロックをドラッグ</span>
     <span class="pill">iPhone：ブロックを約0.45秒長押し→移動</span>
     <span class="pill">タップ：状態変更・相談・30分前確認</span>
-    <span class="pill">初期予約：平日 約55〜60%／休日 約60〜65%</span>
+    <span class="pill">かんたん：スタッフ2＋新人1＋リーダー＋ヘルパー＋副店長＋店長</span>
+    <span class="pill">初期予約：かんたん約55%／平日 約55〜60%／休日 約60〜65%</span>
     <span class="pill">10:00は通常スタッフ1名を10:30まで空ける</span>
     <span class="pill">当日客：1日複数回必ず発生・1〜3名同時来店あり</span>
     <span class="pill">当日客：15分カード→内容確認1分→必要時間で配置</span>
     <span class="pill">休憩60分は開始前に配置済み</span>
     <span class="pill">30分枠は件数ベース約15%以下</span>
+    <span class="pill">🟪 紫＝報告・確認なしの無断延長</span>
+    <span class="pill">⏱ 時間確認で0/15/30/45分の終了見込みを表示</span>
   </div>
 </div>
 
@@ -172,7 +291,10 @@ let dayMode="weekday";
 let lanes=[];
 
 function buildLanes(){
-  if(dayMode==="weekday"){
+  document.body.classList.toggle("easyMode",dayMode==="easy");
+  if(dayMode==="easy"){
+    lanes=["スタッフA","スタッフB","新人1","リーダー","ヘルパー","登録待ち","当日","副店長","店長","予備"];
+  }else if(dayMode==="weekday"){
     lanes=["スタッフA","スタッフB","スタッフC","新人1","新人2","リーダー","ヘルパー","登録待ち","当日","副店長","店長","予備"];
   }else{
     lanes=["スタッフA","スタッフB","スタッフC","スタッフD","スタッフE","新人1","新人2","リーダー","ヘルパー","登録待ち","当日","副店長","店長","予備"];
@@ -198,14 +320,20 @@ function buildStaff(){
   const newbie=["プラン相談","その他","操作","簡易","他店在庫受取"];
   const times=["安定◎","比較的安定","延長しやすい"];
 
-  const regulars = dayMode==="weekday" ? ["スタッフA","スタッフB","スタッフC"] : ["スタッフA","スタッフB","スタッフC","スタッフD","スタッフE"];
+  const regulars = dayMode==="easy"
+    ? ["スタッフA","スタッフB"]
+    : dayMode==="weekday"
+      ? ["スタッフA","スタッフB","スタッフC"]
+      : ["スタッフA","スタッフB","スタッフC","スタッフD","スタッフE"];
+
   regulars.forEach((n,i)=>{
-    const lv=[3,2,1,3,2][i%5];
+    const lv=dayMode==="easy" ? [3,2][i%2] : [3,2,1,3,2][i%5];
     const sk=lv===3?all:(lv===2?lv2:lv1);
     addStaff(n,lv,times[i%3],sk);
   });
+
   addStaff("新人1","新人","延長しやすい",newbie);
-  addStaff("新人2","新人","比較的安定",newbie);
+  if(dayMode!=="easy") addStaff("新人2","新人","比較的安定",newbie);
   addStaff("店長",3,"安定◎",all,"空け");
   addStaff("副店長",3,"比較的安定",all,"相談者");
   addStaff("リーダー",3,"比較的安定",all,"フロア管理");
@@ -288,7 +416,8 @@ function addBlock(lane,start,type,opt={}){
  const b={id:nextId++,lane,start,type,duration:baseDuration,state:opt.state||"white",locked:!!opt.locked,addressee:opt.addressee||null,source:opt.source||"予約",extended:0,check30Done:false,salesWon:[],salesTried:[],
    opportunities:opt.opportunities!==undefined?opt.opportunities:makeOpportunities(type),
    opportunitiesRevealed:opt.opportunitiesRevealed!==undefined?opt.opportunitiesRevealed:(opt.source!=="当日"),
-   inspected:false,consulted:false,originalDuration:opt.originalDuration??baseDuration};
+   inspected:false,consulted:false,originalDuration:opt.originalDuration??baseDuration,
+   unauthorizedExtension:false,unauthorizedBlockId:null};
  blocks.push(b);renderBlocks();return b;
 }
 function stateClass(b){return b.addressee||b.locked?"st-pink":"st-"+b.state}
@@ -303,7 +432,7 @@ function renderBlocks(){
    const waitRow=(b.source==="当日"&&!b.inspected)?`<div class="sub">内容未確認</div>`:"";
    const consultRow=b.consulted?`<div class="sub">💬 相談済（見込み★+1）</div>`:"";
    const won=(b.salesWon&&b.salesWon.length)?`<div class="sub">成約：${b.salesWon.map(k=>k+" ♪").join("　")}</div>`:"";
-   const canResize=!["休憩","延長","ご指摘対応","相談者"].includes(b.type) && !["当日","登録待ち","予備"].includes(b.lane);
+   const canResize=!["休憩","延長","無断延長","ご指摘対応","相談者"].includes(b.type) && !["当日","登録待ち","予備"].includes(b.lane);
    d.innerHTML=`<div class="title">${b.addressee?b.addressee+"宛｜":""}${b.type}</div><div class="sub">${fmt(b.start)}-${fmt(b.start+b.duration)}</div>${waitRow}${oppRow}${consultRow}${won}${canResize?'<div class="resizeHandle"></div>':''}`;
    bindBlock(d,b);cell.appendChild(d);
  });
@@ -401,7 +530,7 @@ function openModal(b){
  <button onclick="adjustDuration(30)">🟩 +30分</button>
  <button onclick="adjustDuration(-15)">⬇ -15分</button>
  <button onclick="adjustDuration(-30)">⬇ -30分</button>
- <button onclick="check30()">⏱ 終了見込み確認</button>
+ <button onclick="check30()">⏱ 終了見込み確認（何分伸びる？）</button>
  </div>`;
  if(s&&b.state==="orange"&&b.opportunitiesRevealed){
    h+=`<h4>提案結果</h4><div class="small">★が高いほど成約しやすくなります。提案した項目だけ判定してください。</div><div class="actionGrid">`;
@@ -523,14 +652,98 @@ function consultAll(){
  }
  renderBlocks(); updateScore(); closeModal();
 }
-function check30(){
- if(!selected)return;selected.check30Done=true;score+=5;
- const t=staff[selected.lane]?.time;let m="予定通り終わる見込み";
- if(t==="延長しやすい"&&Math.random()<.65)m="15〜30分延長しそう";
- else if(t==="比較的安定"&&Math.random()<.28)m="15分延長の可能性";
- log(`🔎 ${selected.lane}へ終了見込み確認：${m} +5`,"good");updateScore();closeModal();
+
+function predictedExtensionForStaff(staffName){
+  const t=staff[staffName]?.time;
+  const r=Math.random();
+  if(t==="安定◎"){
+    if(r<.78)return 0;
+    if(r<.95)return 15;
+    return 30;
+  }
+  if(t==="比較的安定"){
+    if(r<.55)return 0;
+    if(r<.82)return 15;
+    if(r<.96)return 30;
+    return 45;
+  }
+  // 延長しやすい
+  if(r<.28)return 0;
+  if(r<.55)return 15;
+  if(r<.82)return 30;
+  return 45;
 }
 
+function applyKnownExtensionPrediction(b,mins){
+  if(!b)return;
+  if(b.unauthorizedExtension) removeUnauthorizedBlock(b);
+
+  // 予測が0なら元枠を超えていた既知延長を戻さない。
+  // まだ元枠内なら延長なし。
+  if(mins<=0){
+    b.extended=Math.max(0,b.duration-b.originalDuration);
+    rebuildExtensionFor(b);
+    return;
+  }
+
+  const desired=b.originalDuration+mins;
+  if(b.duration<desired)b.duration=desired;
+  rebuildExtensionFor(b);
+}
+function check30(){
+ if(!selected)return;
+ selected.check30Done=true;
+ score+=5;
+
+ const mins=predictedExtensionForStaff(selected.lane);
+ applyKnownExtensionPrediction(selected,mins);
+
+ if(mins===0){
+   log(`🔎 ${selected.lane}「${selected.type}」終了見込み確認：時間内に終了予定　+5`,"good");
+ }else{
+   log(`🔎 ${selected.lane}「${selected.type}」終了見込み確認：+${mins}分延長見込み　+5`,"good");
+ }
+ renderBlocks();
+ updateScore();
+ closeModal();
+}
+
+
+function removeUnauthorizedBlock(parent){
+  if(parent.unauthorizedBlockId){
+    blocks=blocks.filter(x=>x.id!==parent.unauthorizedBlockId);
+    parent.unauthorizedBlockId=null;
+  }
+  parent.unauthorizedExtension=false;
+}
+function createUnauthorizedExtension(parent,mins=15){
+  if(parent.unauthorizedExtension)return;
+  const ext={
+    id:nextId++,lane:parent.lane,start:parent.start+parent.originalDuration,type:"無断延長",
+    duration:mins,state:"purple",locked:false,addressee:null,source:"無断延長",
+    extended:0,check30Done:false,salesWon:[],salesTried:[],opportunities:[],
+    opportunitiesRevealed:true,inspected:false,consulted:false,
+    originalDuration:mins,parentId:parent.id,unauthorizedExtension:false,unauthorizedBlockId:null
+  };
+  blocks.push(ext);
+  parent.unauthorizedExtension=true;
+  parent.unauthorizedBlockId=ext.id;
+  parent.duration=Math.max(parent.duration,parent.originalDuration+mins);
+  score-=5;
+  rtScore=Math.max(0,rtScore-5);
+  log(`🟪 無断延長：${parent.lane}「${parent.type}」予定終了を超過。確認してください -5`,"bad");
+  renderBlocks();updateScore();
+}
+function convertUnauthorizedToKnown(parent){
+  if(!parent.unauthorizedExtension)return;
+  const ub=blocks.find(x=>x.id===parent.unauthorizedBlockId);
+  const mins=ub?ub.duration:15;
+  removeUnauthorizedBlock(parent);
+  parent.duration=Math.max(parent.duration,parent.originalDuration+mins);
+  rebuildExtensionFor(parent);
+  log(`🟩 ${parent.lane}「${parent.type}」無断延長を確認済み延長へ変更`,"good");
+  renderBlocks();
+}
 function removeExtensionBlocksFor(parent){
   blocks=blocks.filter(x=>!(x.source==="延長" && x.parentId===parent.id));
 }
@@ -550,7 +763,8 @@ function rebuildExtensionFor(parent){
   }
 }
 function setBlockDurationFromResize(b,newDuration){
-  if(b.type==="延長")return;
+  if(["延長","無断延長"].includes(b.type))return;
+  if(b.unauthorizedExtension)removeUnauthorizedBlock(b);
   const old=b.duration;
   b.duration=newDuration;
   rebuildExtensionFor(b);
@@ -583,22 +797,26 @@ function triggerNeed(b,label){
 }
 
 function makeWalkInWaveSchedule(){
-  // 当日来店は必ず発生。午前・中盤・夕方へ分散。
-  // 平日4〜6波、休日5〜7波。開始時刻は原則00/30。
-  const count=dayMode==="weekday" ? 4+Math.floor(Math.random()*3) : 5+Math.floor(Math.random()*3);
+  // 当日来店は必ず発生。最初の波は10:15固定。
+  // その後は午前・中盤・夕方へ分散。
+  const count=dayMode==="easy"
+    ? 3+Math.floor(Math.random()*2)
+    : dayMode==="weekday"
+      ? 4+Math.floor(Math.random()*3)
+      : 5+Math.floor(Math.random()*3);
+  const times=[615]; // 10:15
   const buckets=[
-    [630,765],   // 10:30-12:45
+    [660,765],   // 11:00-12:45
     [780,945],   // 13:00-15:45
     [960,1110]   // 16:00-18:30
   ];
-  const times=[];
-  for(let i=0;i<count;i++){
-    const [a,b]=buckets[i%3];
+  for(let i=1;i<count;i++){
+    const [a,b]=buckets[(i-1)%3];
     const candidates=[];
     for(let t=a;t<=b;t+=30)candidates.push(t);
     let t=candidates[Math.floor(Math.random()*candidates.length)];
     let guard=0;
-    while(times.includes(t) && guard<20){
+    while(times.includes(t) && guard<30){
       t=candidates[Math.floor(Math.random()*candidates.length)];
       guard++;
     }
@@ -671,11 +889,51 @@ function updateWorld(){
  blocks.forEach(b=>{
    if(b.start===now&&b.state==="white"&&!["休憩","延長"].includes(b.type))triggerNeed(b,"来店");
    if(b.state==="orange"&&b.start+b.duration-now===30&&!b.check30Done)log(`⏱ ${b.lane}「${b.type}」残り30分。終了見込み確認できます`,"");
+
+   // 元の予定終了時刻を超えたのに確認・報告がない場合は紫の無断延長
+   if(
+     b.state==="orange" &&
+     !["延長","無断延長","休憩","ご指摘対応","相談者"].includes(b.type) &&
+     now>=b.start+b.originalDuration &&
+     !b.check30Done &&
+     !b.unauthorizedExtension
+   ){
+     createUnauthorizedExtension(b,15);
+   }
  });
  pending.forEach(p=>{
    if(!p.done&&!p.small&&(Date.now()-p.t)/1000>15){p.small=true;score-=2;rtScore=Math.max(0,rtScore-2);log(`⚠ リアルタイム反映15秒超過 -2`,"alert");updateScore();}
  });
  if(Math.random()<.42)randomEvent();
+}
+
+function checkStaffTiming(staffName){
+  // 現在そのスタッフが対応中の案件を探す
+  const active=blocks.find(b=>
+    b.lane===staffName &&
+    b.state==="orange" &&
+    !["延長","無断延長","休憩","ご指摘対応","相談者"].includes(b.type) &&
+    now>=b.start &&
+    now<b.start+b.duration
+  );
+
+  if(!active){
+    log(`⏱ ${staffName}：現在確認対象の手続きなし`,"info");
+    return;
+  }
+
+  active.check30Done=true;
+  const mins=predictedExtensionForStaff(staffName);
+  applyKnownExtensionPrediction(active,mins);
+
+  score+=5;
+  if(mins===0){
+    log(`⏱ ${staffName}へ時間確認：「${active.type}」時間内に終了予定　+5`,"good");
+  }else{
+    log(`⏱ ${staffName}へ時間確認：「${active.type}」+${mins}分延長見込み　+5`,"good");
+  }
+  renderBlocks();
+  updateScore();
 }
 function renderStaff(){
  staffStrip.innerHTML="";
@@ -696,6 +954,7 @@ function renderStaff(){
      ${s.role?`<span class="badge role">${s.role}</span>`:""}
      <span class="badge ${tc}">${s.time}</span>
      <div class="proposal">${allProposal}</div>
+     <button type="button" style="width:100%;margin-top:7px" onclick="checkStaffTiming('${n}')">⏱ 時間内に終わるか確認</button>
    </div>`;
  });
 }
@@ -713,7 +972,9 @@ function renderSales(){
     const done=x.current>=x.target;
     const pct=Math.min(100,Math.round((x.current/x.target)*100));
     return `<span class="pill" style="${done?"font-weight:800;border-color:#22c55e;background:#effcf3":""}">
-      ${done?"達成 ♪ ":""}${x.label}：<b>${x.current} / ${x.target}</b>
+      ${done?"達成 ♪ ":""}${x.label}<br>
+      <span style="font-size:11px;color:#64748b">目標 ${x.target}件</span>
+      <span style="margin-left:8px">実績 <b>${x.current}件</b></span>
       <span style="display:inline-block;margin-left:6px;font-size:11px;color:#64748b">${pct}%</span>
     </span>`;
   }).join("");
@@ -828,57 +1089,100 @@ function preferredStarts(ps,pe,dur){
   return oddStartBudget>0 ? normal.concat(odd) : normal;
 }
 function fillBalancedReservations(name,targetRatio){
-  // 10-13 / 13-16 / 16-19 を別々に埋め、空きを全時間帯へ散らす。
+  // 10-13 / 13-16 / 16-19 を別々に埋める。
+  // 入らない手続きを引いても終了せず、別候補を試して目標密度まで近づける。
   const periods=[[START,780],[780,960],[960,END]];
   periods.forEach(([ps,pe])=>{
     const target=(pe-ps)*targetRatio;
-    let occupied=blocks.filter(b=>b.lane===name && b.start<pe && b.start+b.duration>ps)
+    const occupiedMinutes=()=>blocks
+      .filter(b=>b.lane===name && b.start<pe && b.start+b.duration>ps)
       .reduce((sum,b)=>sum+Math.max(0,Math.min(pe,b.start+b.duration)-Math.max(ps,b.start)),0);
-    let attempts=0;
-    while(occupied<target && attempts<120){
-      attempts++;
-      let proc=randomProcFor(name);
-      let guard=0;
-      while(!allowedInitialType(proc) && guard<20){proc=randomProcFor(name);guard++;}
-      if(!allowedInitialType(proc)){attempts++;continue;}
-      const dur=procedures[proc];
-      const starts=preferredStarts(ps,pe,dur);
-      let possible=starts.filter(t=>{
-        if(!freeFor(name,t,dur))return false;
-        // 10:00時点で通常スタッフ1名を必ず空ける。
-        // そのスタッフは10:00〜10:30を初動用の余白にする。
-        if(name===openingFloater && t<START+30 && t+dur>START)return false;
-        return true;
-      });
-      if(!possible.length)break;
 
-      // 00/30開始を優先し、15/45開始は1日2件以下。
-      let normal=possible.filter(t=>t%30===0);
-      let t;
-      if(normal.length && (oddStartBudget<=0 || Math.random()<.94)){
-        t=normal[Math.floor(Math.random()*normal.length)];
-      }else{
+    let attempts=0;
+    while(occupiedMinutes()<target && attempts<400){
+      attempts++;
+
+      // 1回で決め打ちせず、最大20回まで「この隙間に入る手続き」を探す。
+      let placed=false;
+      for(let pick=0;pick<20 && !placed;pick++){
+        const proc=randomProcFor(name);
+        if(!allowedInitialType(proc))continue;
+        const dur=procedures[proc];
+
+        let starts=preferredStarts(ps,pe,dur);
+        let possible=starts.filter(t=>{
+          if(!freeFor(name,t,dur))return false;
+          if(name===openingFloater && t<START+30 && t+dur>START)return false;
+          return true;
+        });
+        if(!possible.length)continue;
+
+        // 原則00/30。15/45は全体で2件以下。
+        const normal=possible.filter(t=>t%30===0);
         const odd=possible.filter(t=>t%30!==0);
-        if(odd.length && oddStartBudget>0){
+        let t=null;
+
+        if(normal.length){
+          t=normal[Math.floor(Math.random()*normal.length)];
+        }else if(odd.length && oddStartBudget>0){
           t=odd[Math.floor(Math.random()*odd.length)];
           oddStartBudget--;
-        }else if(normal.length){
-          t=normal[Math.floor(Math.random()*normal.length)];
-        }else break;
+        }
+        if(t===null)continue;
+
+        addBlock(name,t,proc,{state:"white",source:"予約"});
+        noteInitialType(proc);
+        placed=true;
       }
-      addBlock(name,t,proc,{state:"white",source:"予約"});
-      noteInitialType(proc);
-      occupied+=dur;
+
+      // 20回試して何も入らないなら、その時間帯はほぼ埋まっているので終了。
+      if(!placed)break;
     }
   });
 }
+function ensureVisibleReservations(name){
+  // 生成の偏りで予約が極端に少なくならないよう最低件数を保証。
+  // 休憩は数えず、平日/休日とも最低4件を目安。
+  const countBookings=()=>blocks.filter(b=>b.lane===name && b.source==="予約").length;
+  let guard=0;
+  while(countBookings()<4 && guard<120){
+    guard++;
+    const proc=randomProcFor(name);
+    if(!allowedInitialType(proc))continue;
+    const dur=procedures[proc];
+
+    // 午前・中盤・夕方を順番に試す
+    const periods=[[600,780],[780,960],[960,1140]];
+    let placed=false;
+    for(const [ps,pe] of periods){
+      const candidates=[];
+      for(let t=ps;t+dur<=pe;t+=30){
+        if(name===openingFloater && t<630 && t+dur>600)continue;
+        if(freeFor(name,t,dur))candidates.push(t);
+      }
+      if(candidates.length){
+        const t=candidates[Math.floor(Math.random()*candidates.length)];
+        addBlock(name,t,proc,{state:"white",source:"予約"});
+        noteInitialType(proc);
+        placed=true;
+        break;
+      }
+    }
+    if(!placed)break;
+  }
+}
 function ensureHelperCapacity(regulars){
   // ヘルパー終了後60分以内に、少なくとも1つ登録可能な空きがある商談だけ作る。
-  const helperDeals=[
-    {start:630,type:"新規",dealDur:60,regDur:90},
-    {start:870,type:"光相談",dealDur:60,regDur:60},
-    {start:1020,type:"機種変更",dealDur:60,regDur:90}
-  ];
+  const helperDeals=dayMode==="easy"
+    ? [
+        {start:660,type:"新規",dealDur:60,regDur:90},
+        {start:900,type:"光相談",dealDur:60,regDur:60}
+      ]
+    : [
+        {start:630,type:"新規",dealDur:60,regDur:90},
+        {start:870,type:"光相談",dealDur:60,regDur:60},
+        {start:1020,type:"機種変更",dealDur:60,regDur:90}
+      ];
   helperDeals.forEach(d=>{
     const finish=d.start+d.dealDur;
     let hasSpace=false;
@@ -920,9 +1224,9 @@ function seed(){
   // 1. 休憩を先に確保
   reserveBreaks(regulars);
   // ヘルパー・リーダー・副店長・店長にも60分休憩を事前配置
-  const managementBreaks=[
-    ["リーダー",720],["ヘルパー",780],["副店長",840],["店長",900]
-  ];
+  const managementBreaks=dayMode==="easy"
+    ? [["リーダー",720],["ヘルパー",780],["副店長",840],["店長",900]]
+    : [["リーダー",720],["ヘルパー",780],["副店長",840],["店長",900]];
   managementBreaks.forEach(([n,t])=>{
     if(lanes.includes(n) && freeFor(n,t,60)){
       addBlock(n,t,"休憩",{state:"blue",source:"休憩",opportunities:[],opportunitiesRevealed:true});
@@ -930,8 +1234,9 @@ function seed(){
   });
 
   // 2. 予約密度：平日55〜60%、休日60〜65%
-  const target=dayMode==="weekday" ? .575 : .625;
+  const target=dayMode==="easy" ? .55 : (dayMode==="weekday" ? .575 : .625);
   regulars.forEach(n=>fillBalancedReservations(n,target));
+  regulars.forEach(n=>ensureVisibleReservations(n));
 
   // 3. 宛予約は少数。空いている場所にのみ入れる。
   const candidates=regulars.filter(x=>staff[x]?.level!=="新人");
@@ -947,6 +1252,7 @@ function seed(){
   if(openingFloater){
     log(`🟢 10:00初動枠：${openingFloater} を10:30まで空けています`,"good");
   }
+  log(`🚶 最初の当日来店予定：10:15`,"info");
 }
 document.getElementById("startBtn").onclick=startGame;
 document.getElementById("pauseBtn").onclick=pauseGame;
@@ -960,7 +1266,12 @@ document.getElementById("dayModeSel").onchange=()=>{
   scheduledWalkInWaves=[]; openingFloater=null; achievedTargets=new Set();
   sales={}; salesKeys.forEach(k=>sales[k]=0);
   buildLanes(); buildStaff(); renderGrid(); renderStaff(); seed(); renderSales(); updateScore(); highlightNow();
-  log(dayMode==="weekday"?"📅 平日モードに変更":"📅 休日モードに変更","");
+  log(
+    dayMode==="easy" ? "📱 かんたんモードに変更"
+    : dayMode==="weekday" ? "📅 平日モードに変更"
+    : "📅 休日モードに変更",
+    ""
+  );
 };
 buildLanes();buildStaff();renderGrid();renderStaff();seed();renderSales();updateScore();highlightNow();log("準備完了。開始を押してください","");
 </script>
