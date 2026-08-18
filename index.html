@@ -1,4 +1,4 @@
-<!doctype html>
+<!doctype html>\n<!-- Cloudflare Pagesへindex.htmlとして直接アップロード可能 -->
 <html lang="ja">
 <head>
 <meta charset="utf-8">
@@ -266,6 +266,7 @@ body.easyMode #boardWrap{
     <span class="pill">Windows：ブロックをドラッグ（掴んだ位置を保持）</span>
     <span class="pill">iPhone：ブロックを約0.45秒長押し→移動（時刻ズレ補正）</span>
     <span class="pill">タップ：状態変更・相談・30分前確認</span>
+    <span class="pill">ヘルパー登録：60分／90分を手動作成可能</span>\n    <span class="pill">件数目標：PI 2件／機種変更 通常13件・かんたん6件</span>
     <span class="pill">🔄 更新するたび予約・Lv・時間管理・提案★を再抽選</span>
     <span class="pill">かんたん：スタッフ2＋新人1＋リーダー＋ヘルパー＋副店長＋店長</span>
     <span class="pill">初期予約：かんたん約55%／平日 約55〜60%／休日 約60〜65%</span>
@@ -276,6 +277,16 @@ body.easyMode #boardWrap{
     <span class="pill">30分枠は件数ベース約15%以下</span>
     <span class="pill">🟪 紫＝報告・確認なしの無断延長</span>
     <span class="pill">⏱ 時間確認で0/15/30/45分の終了見込みを表示</span>
+  </div>
+  <div style="margin-top:10px;padding-top:10px;border-top:1px solid #d7dbe0">
+    <b>ヘルパー登録枠を作成</b>
+    <div class="flex" style="margin-top:7px">
+      <button type="button" onclick="createHelperRegistration(60)">＋ ヘルパー登録 60分</button>
+      <button type="button" onclick="createHelperRegistration(90)">＋ ヘルパー登録 90分</button>
+    </div>
+    <div class="small" style="margin-top:5px">
+      「登録待ち」に作成されます。そこから登録可能なスタッフ・新人へ移動してください。
+    </div>
   </div>
 </div>
 
@@ -301,7 +312,7 @@ function buildLanes(){
     lanes=["スタッフA","スタッフB","スタッフC","スタッフD","スタッフE","新人1","新人2","リーダー","ヘルパー","登録待ち","当日","副店長","店長","予備"];
   }
 }
-const procedures={"PI":90,"新規":90,"機種変更":90,"故障":60,"プラン相談":60,"光相談":60,"その他":60,"操作":30,"簡易":30,"支払い":15,"他店在庫受取":45,"休憩":60};
+const procedures={"PI":90,"新規":90,"機種変更":90,"故障":60,"プラン相談":60,"光相談":60,"その他":60,"操作":30,"簡易":30,"支払い":15,"他店在庫受取":45,"ヘルパー登録":60,"休憩":60};
 const salesValues={"PLATINUM":100,"光":100,"GOLD":60,"機種変更化":60,"でんき・ガス":30,"アフィリエイト":30};
 const salesKeys=Object.keys(salesValues);
 
@@ -395,6 +406,10 @@ function buildStaff(){
 let now=START,running=false,timer=null,score=0,rtScore=100,bossCount=0;
 let sales={};salesKeys.forEach(k=>sales[k]=0);
 const targets={"PLATINUM":2,"光":3,"GOLD":4,"アフィリエイト":5,"でんき・ガス":3};
+let piCompleted=0;
+let modelChangeCompleted=0;
+function piTarget(){return 2;}
+function modelChangeTarget(){return dayMode==="easy"?6:13;}
 let blocks=[],nextId=1,pending=[],selected=null;
 let dragGrabOffsetSlots=0;
 let achievedTargets=new Set();
@@ -462,7 +477,7 @@ function makeOpportunities(type){
   if(!["休憩","延長","他店在庫受取","ご指摘対応","相談者"].includes(type)){
     if(Math.random()<.38) result.push("でんき・ガス");
     if(Math.random()<.28) result.push("アフィリエイト");
-    if(["プラン相談","故障","その他"].includes(type) && Math.random()<.38) result.push("機種変更化");
+    if(["プラン相談","故障","その他"].includes(type) && Math.random()<.50) result.push("機種変更化");
   }
   return [...new Set(result)];
 }
@@ -566,7 +581,9 @@ function canDo(lane,type,b){
  if(["当日","登録待ち","予備"].includes(lane))return true;
  if(type==="休憩")return lane!=="ヘルパー";
  if(lane==="ヘルパー")return true;
- if(b&&b.source==="ヘルパー登録")return lane!=="ヘルパー" && !["当日","登録待ち","予備"].includes(lane);
+ if((b&&b.source==="ヘルパー登録") || type==="ヘルパー登録"){
+   return lane!=="ヘルパー" && !["当日","登録待ち","予備"].includes(lane);
+ }
  return staff[lane]?.skills.includes(type);
 }
 function moveBlock(b,lane,start){
@@ -611,7 +628,7 @@ function openModal(b){
  <button onclick="adjustDuration(-30)">⬇ -30分</button>
  <button onclick="check30()">⏱ 終了見込み確認（何分伸びる？）</button>
  </div>`;
- if(s&&b.state==="orange"&&b.opportunitiesRevealed){
+ if(s&&b.state==="orange"&&b.opportunitiesRevealed&&b.type!=="ヘルパー登録"){
    h+=`<h4>提案結果</h4><div class="small">★が高いほど成約しやすくなります。提案した項目だけ判定してください。</div><div class="actionGrid">`;
    salesKeys.forEach(k=>{
      const tried=(b.salesTried||[]).includes(k);
@@ -635,6 +652,24 @@ function openModal(b){
 }
 function closeModal(){modalBackdrop.style.display="none"}
 modalClose.onclick=closeModal;modalBackdrop.onclick=e=>{if(e.target===modalBackdrop)closeModal()};
+function countCompletedProcedure(b){
+  if(!b||b.completionCounted)return;
+  const isPI=b.type==="PI"||(b.type==="ヘルパー登録"&&b.helperOriginalType==="PI");
+  const isModelChange=
+    b.type==="機種変更"||
+    (b.type==="ヘルパー登録"&&b.helperOriginalType==="機種変更")||
+    ((b.salesWon||[]).includes("機種変更化"));
+  if(isPI)piCompleted++;
+  if(isModelChange)modelChangeCompleted++;
+  if(isPI||isModelChange){
+    b.completionCounted=true;
+    const labels=[];
+    if(isPI)labels.push(`PI ${piCompleted}/${piTarget()}`);
+    if(isModelChange)labels.push(`機種変更 ${modelChangeCompleted}/${modelChangeTarget()}`);
+    log(`📊 完了実績：${labels.join("・")}`,"good");
+    checkTargets(); renderSales(); updateScore();
+  }
+}
 function setState(st){
  if(!selected)return;selected.state=st;
  const p=pending.find(x=>x.id===selected.id&&!x.done);
@@ -863,9 +898,38 @@ function extendSel(m){
  setBlockDurationFromResize(selected,selected.duration+m);
  closeModal();
 }
+
+function createHelperRegistration(mins){
+  const start=Math.max(START,Math.min(END-15,now));
+  addBlock("登録待ち",start,"ヘルパー登録",{
+    duration:mins,
+    state:"yellow",
+    source:"ヘルパー登録",
+    opportunities:[],
+    opportunitiesRevealed:true,
+    originalDuration:mins
+  });
+  log(`📥 ヘルパー登録 ${mins}分を登録待ちに作成`,"info");
+  renderBlocks();
+}
+
 function helperToReg(){
- if(!selected)return;const d=["PI","新規","機種変更"].includes(selected.type)?90:60;
- addBlock("登録待ち",now,selected.type,{duration:d,state:"yellow",source:"ヘルパー登録"});selected.state="gray";log(`📥 ヘルパー案件を登録待ちへ`,"good");renderBlocks();closeModal();
+ if(!selected)return;
+ const originalType=selected.type;
+ const d=["PI","新規","機種変更"].includes(originalType)?90:60;
+ const b=addBlock("登録待ち",now,"ヘルパー登録",{
+   duration:d,
+   state:"yellow",
+   source:"ヘルパー登録",
+   opportunities:[],
+   opportunitiesRevealed:true,
+   originalDuration:d
+ });
+ b.helperOriginalType=originalType;
+ selected.state="gray";
+ log(`📥 ヘルパー商談「${originalType}」→ ヘルパー登録 ${d}分を作成`,"good");
+ renderBlocks();
+ closeModal();
 }
 function triggerNeed(b,label){
  pending.push({id:b.id,t:Date.now(),done:false,small:false,required:label==="キャンセル"?"red":label==="来店"?"yellow":null});
@@ -1048,15 +1112,17 @@ function renderStaff(){
   });
 }
 function renderSales(){
+  const targetEl=document.getElementById("targetBoard");
+  if(!targetEl)return;
   const items=[
+    {label:"PI",current:piCompleted,target:piTarget()},
+    {label:"📱 機種変更",current:modelChangeCompleted,target:modelChangeTarget()},
     {label:"💎 PLATINUM",current:sales["PLATINUM"]||0,target:2},
     {label:"💡 光",current:sales["光"]||0,target:3},
     {label:"💳 GOLD",current:sales["GOLD"]||0,target:4},
     {label:"👿 アフィリエイト",current:sales["アフィリエイト"]||0,target:5},
     {label:"🔥 でんき・ガス",current:sales["でんき・ガス"]||0,target:3}
   ];
-  const targetEl=document.getElementById("targetBoard");
-  if(!targetEl)return;
   targetEl.innerHTML=items.map(x=>{
     const done=x.current>=x.target;
     const pct=Math.min(100,Math.round((x.current/x.target)*100));
@@ -1070,6 +1136,8 @@ function renderSales(){
 }
 function checkTargets(){
   const checks=[
+    ["PI",piCompleted,piTarget()],
+    ["機種変更",modelChangeCompleted,modelChangeTarget()],
     ["PLATINUM",sales["PLATINUM"]||0,2],
     ["光",sales["光"]||0,3],
     ["GOLD",sales["GOLD"]||0,4],
@@ -1077,9 +1145,8 @@ function checkTargets(){
     ["でんき・ガス",sales["でんき・ガス"]||0,3]
   ];
   checks.forEach(([name,current,target])=>{
-    if(current>=target && !achievedTargets.has(name)){
-      achievedTargets.add(name);
-      score+=20;
+    if(current>=target&&!achievedTargets.has(name)){
+      achievedTargets.add(name); score+=20;
       log(`🏆 本日目標達成：${name} ${current}/${target}　+20`,"good");
     }
   });
@@ -1123,7 +1190,7 @@ function randomProcFor(name){
   const weights=[
     {type:"PI",w:3},
     {type:"新規",w:9},
-    {type:"機種変更",w:18},
+    {type:"機種変更",w:25},
     {type:"故障",w:17},
     {type:"プラン相談",w:18},
     {type:"光相談",w:4},
@@ -1375,7 +1442,7 @@ document.getElementById("dayModeSel").onchange=()=>{
   now=START; blocks=[]; nextId=1; pending=[]; score=0; rtScore=100; bossCount=0;
   oddStartBudget=2; dailyInitialCounts={PI:0,"光相談":0}; dailyWalkInCounts={PI:0,"光相談":0};
   scheduledWalkInWaves=[]; openingFloater=null; achievedTargets=new Set();
-  sales={}; salesKeys.forEach(k=>sales[k]=0);
+  sales={}; salesKeys.forEach(k=>sales[k]=0); piCompleted=0; modelChangeCompleted=0;
   buildLanes(); buildStaff(); renderGrid(); renderStaff(); seed(); renderSales(); updateScore(); highlightNow();
   log(
     dayMode==="easy" ? "📱 かんたんモードに変更"
