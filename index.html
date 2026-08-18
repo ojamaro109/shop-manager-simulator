@@ -266,11 +266,11 @@ body.easyMode #boardWrap{
     <span class="pill">Windows：ブロックをドラッグ（掴んだ位置を保持）</span>
     <span class="pill">iPhone：ブロックを約0.45秒長押し→移動（時刻ズレ補正）</span>
     <span class="pill">タップ：状態変更・相談・30分前確認</span>
-    <span class="pill">ヘルパー登録：60分／90分を手動作成可能</span>\n    <span class="pill">件数目標：PI 2件／機種変更 通常13件・かんたん6件</span>
+    <span class="pill">ヘルパー登録：登録待ちの空きマスをタップ→30分/60分/90分作成</span>\n    <span class="pill">件数目標：PI 2件／機種変更 通常13件・かんたん6件</span>
     <span class="pill">🔄 更新するたび予約・Lv・時間管理・提案★を再抽選</span>
     <span class="pill">かんたん：スタッフ2＋新人1＋リーダー＋ヘルパー＋副店長＋店長</span>
     <span class="pill">初期予約：かんたん約55%／平日 約55〜60%／休日 約60〜65%</span>
-    <span class="pill">10:00は通常スタッフ1名だけ空き・他スタッフは予約あり</span>
+    <span class="pill">10:00はスタッフ1名＋リーダー＋副店長（相談）＋店長を空ける</span>
     <span class="pill">当日客：1日複数回必ず発生・1〜3名同時来店あり</span>
     <span class="pill">当日客：15分カード→内容確認1分→必要時間で配置</span>
     <span class="pill">休憩60分は開始前に配置済み</span>
@@ -281,6 +281,7 @@ body.easyMode #boardWrap{
   <div style="margin-top:10px;padding-top:10px;border-top:1px solid #d7dbe0">
     <b>ヘルパー登録枠を作成</b>
     <div class="flex" style="margin-top:7px">
+      <button type="button" onclick="createHelperRegistration(30)">＋ ヘルパー登録 30分</button>
       <button type="button" onclick="createHelperRegistration(60)">＋ ヘルパー登録 60分</button>
       <button type="button" onclick="createHelperRegistration(90)">＋ ヘルパー登録 90分</button>
     </div>
@@ -347,6 +348,19 @@ function helperProposalSet(){
   }
   return p;
 }
+
+function newbieProposalSet(){
+  const p={};
+  salesKeys.forEach(k=>{
+    const r=Math.random();
+    p[k]=r<0.38?1:(r<0.80?2:3);
+  });
+  if(salesKeys.every(k=>p[k]===1)){
+    p[salesKeys[Math.floor(Math.random()*salesKeys.length)]]=2;
+  }
+  return p;
+}
+
 function addStaff(name,level,time,skills,role="",proposal=null){
   staff[name]={level,time,skills,role,proposal:proposal||proposalSet()};
 }
@@ -386,9 +400,9 @@ function buildStaff(){
     addStaff(n,lv,tm,sk);
   });
 
-  addStaff("新人1","新人",Math.random()<0.55?"延長しやすい":"比較的安定",newbie);
+  addStaff("新人1","新人",Math.random()<0.72?"延長しやすい":"比較的安定",newbie,"",newbieProposalSet());
   if(dayMode!=="easy"){
-    addStaff("新人2","新人",Math.random()<0.45?"延長しやすい":"比較的安定",newbie);
+    addStaff("新人2","新人",Math.random()<0.68?"延長しやすい":"比較的安定",newbie,"",newbieProposalSet());
   }
   addStaff("店長",3,Math.random()<0.7?"安定◎":"比較的安定",all,"空け");
   addStaff("副店長",3,Math.random()<0.55?"安定◎":"比較的安定",all,"相談者");
@@ -411,6 +425,7 @@ let modelChangeCompleted=0;
 function piTarget(){return 2;}
 function modelChangeTarget(){return dayMode==="easy"?6:13;}
 let blocks=[],nextId=1,pending=[],selected=null;
+let selectedCellForCreate=null;
 let dragGrabOffsetSlots=0;
 let achievedTargets=new Set();
 
@@ -429,7 +444,7 @@ function log(txt,cls=""){
   eventEl.innerHTML=`<div class="logrow ${auto}"><b>${fmt(now)}</b>　${txt}</div>`+eventEl.innerHTML;
 }
 function renderGrid(){
- let h="<tr><th class='time'>時間</th>";lanes.forEach(l=>h+=`<th>${l}</th>`);h+="</tr>";
+ let h="<tr><th class='time'>時間</th>";lanes.forEach(l=>h+=`<th>${l}${l==="登録待ち"?"<br><span style='font-size:10px'>タップで作成</span>":""}</th>`);h+="</tr>";
  for(let t=START;t<=END;t+=15){
    h+=`<tr data-time="${t}"><td class="time">${fmt(t)}</td>`;
    lanes.forEach(l=>h+=`<td data-lane="${l}" data-time="${t}"></td>`);
@@ -438,6 +453,12 @@ function renderGrid(){
  grid.innerHTML=h;
  document.querySelectorAll("#grid td[data-lane]").forEach(td=>{
    td.addEventListener("dragover",e=>e.preventDefault());
+   td.addEventListener("click",e=>{
+     if(e.target.closest(".block"))return;
+     if(td.dataset.lane==="登録待ち"){
+       openHelperRegistrationCreate(Number(td.dataset.time));
+     }
+   });
    td.addEventListener("drop",e=>{
      e.preventDefault();
      const id=Number(e.dataTransfer.getData("text/plain"));
@@ -899,18 +920,39 @@ function extendSel(m){
  closeModal();
 }
 
-function createHelperRegistration(mins){
-  const start=Math.max(START,Math.min(END-15,now));
-  addBlock("登録待ち",start,"ヘルパー登録",{
-    duration:mins,
-    state:"yellow",
-    source:"ヘルパー登録",
-    opportunities:[],
-    opportunitiesRevealed:true,
-    originalDuration:mins
+
+function openHelperRegistrationCreate(startTime){
+  selectedCellForCreate={lane:"登録待ち",start:startTime};
+  const body=document.getElementById("modalBody");
+  body.innerHTML=`<h3>ヘルパー登録を作成</h3>
+    <div class="small">開始 ${fmt(startTime)}｜登録待ち</div>
+    <div class="actionGrid" style="margin-top:10px">
+      <button onclick="createHelperRegistrationAt(30)">30分で作成</button>
+      <button onclick="createHelperRegistrationAt(60)">60分で作成</button>
+      <button onclick="createHelperRegistrationAt(90)">90分で作成</button>
+    </div>`;
+  document.getElementById("modalBackdrop").style.display="flex";
+}
+
+function createHelperRegistrationAt(mins){
+  if(!selectedCellForCreate)return;
+  const {lane,start}=selectedCellForCreate;
+  if(overlaps(lane,start,mins)){
+    log(`❌ ${fmt(start)}の登録待ちは使用中です`,"bad");
+    closeModal(); return;
+  }
+  addBlock(lane,start,"ヘルパー登録",{
+    duration:mins,state:"yellow",source:"ヘルパー登録",
+    opportunities:[],opportunitiesRevealed:true,originalDuration:mins
   });
-  log(`📥 ヘルパー登録 ${mins}分を登録待ちに作成`,"info");
-  renderBlocks();
+  log(`📥 ${fmt(start)}にヘルパー登録 ${mins}分を作成`,"info");
+  selectedCellForCreate=null;
+  renderBlocks(); closeModal();
+}
+
+function createHelperRegistration(mins){
+  selectedCellForCreate={lane:"登録待ち",start:now};
+  createHelperRegistrationAt(mins);
 }
 
 function helperToReg(){
@@ -1394,25 +1436,43 @@ function seed(){
   regulars.forEach(n=>fillBalancedReservations(n,target));
   regulars.forEach(n=>ensureVisibleReservations(n));
 
-  // 開店時は「スタッフ1人だけ空き」に近づける。
-  // openingFloater以外の通常スタッフに10:00開始の予約がなければ、
-  // 入る手続きを探して10:00へ配置する。
-  const openingStaff=regulars.filter(n=>n.startsWith("スタッフ"));
-  openingStaff.forEach(n=>{
-    if(n===openingFloater)return;
+  // 10:00は「通常スタッフ1人＋リーダー＋副店長＋店長」を空ける。
+  // 副店長は相談ポジションとして初動から空けておく。
+  // 新人・ヘルパーなど、それ以外の接客レーンは10:00から埋める。
+  const openingReserved=new Set([openingFloater,"リーダー","副店長","店長"]);
+  const openingFill=lanes.filter(n=>
+    staff[n] &&
+    !openingReserved.has(n) &&
+    !["当日","登録待ち","予備"].includes(n)
+  );
+
+  openingFill.forEach(n=>{
     const already=blocks.some(b=>b.lane===n && b.start<=START && b.start+b.duration>START);
     if(already)return;
 
     let placed=false;
-    for(let tries=0;tries<40 && !placed;tries++){
-      const proc=randomProcFor(n);
-      if(!allowedInitialType(proc))continue;
+    for(let tries=0;tries<60 && !placed;tries++){
+      let proc;
+      if(n==="ヘルパー"){
+        proc=Math.random()<.5?"機種変更":"新規";
+      }else{
+        proc=randomProcFor(n);
+      }
+      if(!procedures[proc] || !allowedInitialType(proc))continue;
       const dur=procedures[proc];
       if(freeFor(n,START,dur)){
-        addBlock(n,START,proc,{state:"white",source:"予約"});
+        addBlock(n,START,proc,{
+          state:"white",
+          source:n==="ヘルパー"?"ヘルパー商談":"予約"
+        });
         noteInitialType(proc);
         placed=true;
       }
+    }
+
+    // 管理者などで通常の候補が作れない場合も、10時の埋まりを優先
+    if(!placed && freeFor(n,START,60)){
+      addBlock(n,START,"その他",{duration:60,state:"white",source:"予約"});
     }
   });
 
@@ -1428,7 +1488,7 @@ function seed(){
   ensureHelperCapacity(regulars);
 
   if(openingFloater){
-    log(`🟢 10:00初動枠：${openingFloater} を10:30まで空けています`,"good");
+    log(`🟢 10:00初動枠：${openingFloater}＋リーダー＋副店長（相談）＋店長を空けています`,"good");
   }
   log(`🚶 最初の当日来店予定：10:15`,"info");
 }
