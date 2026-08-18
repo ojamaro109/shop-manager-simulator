@@ -273,7 +273,7 @@ body.easyMode #boardWrap{
     <span class="pill">10:00はスタッフ1名＋リーダー＋副店長（相談）＋店長を空ける</span>
     <span class="pill">当日客：1日複数回必ず発生・1〜3名同時来店あり</span>
     <span class="pill">当日客：15分カード→内容確認1分→必要時間で配置</span>
-    <span class="pill">休憩60分は開始前に配置済み</span>
+    <span class="pill">休憩60分は開始前に配置済み・スタッフ間を自由に移動可能</span>
     <span class="pill">30分枠は件数ベース約15%以下</span>
     <span class="pill">🟪 紫＝報告・確認なしの無断延長</span>
     <span class="pill">⏱ 時間確認で0/15/30/45分の終了見込みを表示</span>
@@ -600,24 +600,39 @@ function bindBlock(el,b){
 }
 function canDo(lane,type,b){
  if(["当日","登録待ち","予備"].includes(lane))return true;
- if(type==="休憩")return lane!=="ヘルパー";
+
+ // 休憩は手続き熟練度とは無関係。スタッフレーン間で自由に移動可能。
+ if(type==="休憩"){
+   return !!staff[lane];
+ }
+
  if(lane==="ヘルパー")return true;
+
  if((b&&b.source==="ヘルパー登録") || type==="ヘルパー登録"){
    return lane!=="ヘルパー" && !["当日","登録待ち","予備"].includes(lane);
  }
+
  return staff[lane]?.skills.includes(type);
 }
 function moveBlock(b,lane,start){
  // 開始時刻は15分単位に補正し、営業時間外へは出さない。
  start=Math.round(start/15)*15;
  start=Math.max(START,Math.min(END-15,start));
- if((b.locked||b.addressee)&&lane!==b.lane){log(`🔒 ${b.addressee||b.lane}宛は担当変更不可`,"bad");return;}
+ if(b.type!=="休憩" && (b.locked||b.addressee) && lane!==b.lane){
+   log(`🔒 ${b.addressee||b.lane}宛は担当変更不可`,"bad");
+   return;
+ }
  if(!canDo(lane,b.type,b)){log(`❌ ${lane}は${b.type}対応不可`,"bad");return;}
  b.lane=lane;b.start=start;
  if(b.source==="当日" && !["当日","登録待ち","予備"].includes(lane) && b.requiredDuration){
    b.duration=b.requiredDuration + (b.inspected?1:0);
  }
- renderBlocks();log(`↔ ${b.type} → ${lane} ${fmt(start)}`,"");
+ renderBlocks();
+ if(b.type==="休憩"){
+   log(`🟦 休憩を ${lane} ${fmt(start)}へ移動`,"info");
+ }else{
+   log(`↔ ${b.type} → ${lane} ${fmt(start)}`,"");
+ }
 }
 function openModal(b){
  selected=b;const s=staff[b.lane];
@@ -975,7 +990,7 @@ function helperToReg(){
 }
 function triggerNeed(b,label){
  pending.push({id:b.id,t:Date.now(),done:false,small:false,required:label==="キャンセル"?"red":label==="来店"?"yellow":null});
- if(label==="来店") log(`🟨 来店：${b.lane}「${b.type}」→ 黄色へ更新してください`,"alert");
+ if(label==="来店") log(`🟨 来店：${b.lane}「${b.type}」来店。黄色へ更新してください`,"arrival");
  else if(label==="キャンセル") log(`🟥 キャンセル：${b.lane}「${b.type}」→ 赤へ更新してください`,"bad");
  else log(`📣 ${b.lane}「${b.type}」${label}。色を更新してください`,"alert");
  setTimeout(()=>{const p=pending.find(x=>x.id===b.id&&!x.done);if(p){score-=5;rtScore=Math.max(0,rtScore-5);bossCount++;log(`👔 上司：「${b.lane}の${b.type}、色変えて」 -5`,"bad");updateScore()}},30000);
@@ -1066,13 +1081,28 @@ function randomEvent(){
    if(a.length){const b=a[Math.floor(Math.random()*a.length)];b.duration+=30;b.extended+=30;log(`📢 上席指示：「${b.lane}、追加提案お願いします」 +30分`,"alert");renderBlocks();}
  }
 }
+
+function processArrivalsAtTime(timeValue){
+  blocks.forEach(b=>{
+    if(
+      b.start===timeValue &&
+      b.state==="white" &&
+      !["休憩","延長","無断延長","ご指摘対応","相談者"].includes(b.type) &&
+      b.source!=="当日"
+    ){
+      triggerNeed(b,"来店");
+    }
+  });
+}
+
 function updateWorld(){
  if(scheduledWalkInWaves.includes(now)){
    createWalkInWave();
    scheduledWalkInWaves=scheduledWalkInWaves.filter(t=>t!==now);
  }
+ processArrivalsAtTime(now);
+
  blocks.forEach(b=>{
-   if(b.start===now&&b.state==="white"&&!["休憩","延長"].includes(b.type))triggerNeed(b,"来店");
    if(b.state==="orange"&&b.start+b.duration-now===30&&!b.check30Done)log(`⏱ ${b.lane}「${b.type}」残り30分。終了見込み確認できます`,"");
 
    // 元の予定終了時刻を超えたのに確認・報告がない場合は紫の無断延長
@@ -1212,6 +1242,13 @@ function startGame(){
  if(running)return;
  running=true;
  const speed=document.getElementById("speedSel");
+
+ // 10:00開始時点の予約も来店判定を行う。
+ // これで「スタッフA プラン相談 来店」などがイベントログに出る。
+ if(now===START){
+   processArrivalsAtTime(START);
+ }
+
  timer=setInterval(tick,Number(speed.value)*1000);
  log("▶ 営業開始","");
 }
